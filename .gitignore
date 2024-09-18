@@ -1,2 +1,5 @@
 /Data
+/Models
 *.code-workspace
+/OasisDataReader/__pycache__/
+*.py[cod]
