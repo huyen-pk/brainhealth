@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
-
+import os
 from ipywidgets import interact
 import numpy as np
 import math
 import ants
 import SimpleITK as sitk
+from PIL import Image
 import cv2
 
 def visualize_3D_array_slices_ANTS(path: str, orientation: str = 'IAL'):
@@ -46,6 +47,27 @@ def visualize_3D_array_slices_ANTS(path: str, orientation: str = 'IAL'):
   plt.tight_layout()
   plt.show()
 
+def extract_images_from_3D_array_slices_ANTS(input_path: str, output_dir: str, orientation: str = 'IAL'):
+  """
+  Given a 3D array with shape (Z,Y,X) This function will extract all
+  the 2D arrays with shape (Y,X) inside the 3D array, in the Z direction. 
+
+  Args:
+    arr : 3D array with shape (Z,X,Y) that represents the volume of a MRI image
+    cmap : Which color map use to plot the slices in matplotlib.pyplot
+  """
+
+  img_raw = ants.image_read(input_path)
+  img_ants = ants.reorient_image2(img_raw, orientation)
+  SLICE=(0, img_ants.shape[0]-1) # z-axis of the array represents the number of slices (depth of the volume)
+  arr = img_ants.numpy()
+  # Normalize the image data to the range [0, 255]
+  arr = cv2.normalize(arr, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+  # Loop through slices and write them to disk
+  for i in range(SLICE[1]):
+    pil_img = Image.fromarray(arr[i, :, :])
+    output_path = f'{os.path.join(output_dir, os.path.basename(input_path))}_{orientation}_{i}.jpg'
+    pil_img.save(output_path)
 
 def show_sitk_img_info(img: sitk.Image):
   """
