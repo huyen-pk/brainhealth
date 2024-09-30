@@ -1,5 +1,7 @@
-/Data
-/Models
+/data
+/draft
+/base_models
 *.code-workspace
-/OasisDataReader/__pycache__/
+/__pycache__
 *.py[cod]
+/competitors
