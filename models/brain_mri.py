@@ -6,22 +6,24 @@ from keras import preprocessing
 from keras import optimizers
 from sklearn.model_selection import KFold
 import numpy as np
-import evaluation_metrics as custom_metrics
+from metrics.evaluation_metrics import F1Score
+import models.__conf as config
+from models.brain_result import BrainResult
 from PIL import Image
 
-class AlzheimerDetectionModel:
+class BrainMri:
     def __init__(self):
-        self.root_dir = os.path.expanduser('~/Projects/AlzheimerDiagnosisAssist')
-        self.models_repo = os.path.join(self.root_dir, 'Models')
-        self.pretrained_model_path = os.path.join(self.models_repo, 'DBN_model.h5')
+        self.models_repo = os.getenv(config.MODELS_REPO_DIR_PATH)
+        self.pretrained_model_path = os.getenv(config.BASE_MODEL_PATH)
         self.pretrained_model = models.load_model(self.pretrained_model_path, compile=False)
         self.model_name = 'DeepBrainNet_Alzheimer'
         self.model_dir = os.path.join(self.models_repo, self.model_name)
-        self.train_data_dir = os.path.join(self.root_dir, 'Data', 'OASIS', 'slices')
+        self.train_data_dir = os.getenv(config.TRAIN_DATA_DIR)
 
     def load_data(self, data_dir: str) -> tf.data.Dataset:
         """
         Load the dataset and labels from directory structure where subdirectories represent different classes.
+        Preprocess the images to a proper format.
 
         Parameters:
         data_dir (str): The directory where the data is stored.
@@ -31,11 +33,9 @@ class AlzheimerDetectionModel:
         """
         dataset = preprocessing.image_dataset_from_directory(
             data_dir,
-            image_size=(150, 150),
+            image_size=(32, 32),
+            color_mode='rgb',
             batch_size=32,
-            label_mode='categorical',
-            labels='inferred',
-            class_names='inferred',
             seed=123
         )
         return dataset
@@ -49,6 +49,7 @@ class AlzheimerDetectionModel:
         return np.array(images), np.array(labels)
 
     def define_model(self, pretrained_model: tf.keras.Model) -> tf.keras.Model:
+
         # Define the augmentation layers
         data_augmentation = tf.keras.Sequential([
             layers.RandomFlip("horizontal_and_vertical"),  # Randomly flip horizontally and vertically
@@ -66,19 +67,17 @@ class AlzheimerDetectionModel:
         
         # Define the model
         model = tf.keras.Sequential([
-            layers.InputLayer(input_shape=(32, 32, 1)),
-            # data_augmentation,  # Add the augmentation layer to the model
-            # pretrained_model
+            layers.InputLayer(input_shape=(32, 32, 3))
         ])
-        # for layer in data_augmentation.layers:
-        #     model.add(layer)
+        for layer in data_augmentation.layers:
+            model.add(layer)
 
         for layer in pretrained_model.layers:
             model.add(layer)
 
         # Compile the model
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(),
+            optimizer=optimizers.Adam(),
             loss=tf.keras.losses.BinaryCrossentropy(),
             metrics=[custom_metrics.F1Score()]
         )
@@ -113,7 +112,7 @@ class AlzheimerDetectionModel:
             model.compile(
                 optimizer=tf.keras.optimizers.Adam(),
                 loss=tf.keras.losses.CategoricalCrossEntropy(),
-                metrics=[custom_metrics.F1Score()]
+                metrics=[F1Score()]
             )
 
             # Retrain the model
@@ -148,36 +147,12 @@ class AlzheimerDetectionModel:
         print(f'Best model saved as {final_model_path} with accuracy {best_fold[2]}')
 
     def predict(self, model: tf.keras.Model, input: np.ndarray) -> np.ndarray:
-        prediction = model.predict(input)
-        return prediction
+        predictions = model.predict(input)
+        result = BrainResult()
+        return result.get_result(predictions)
     
-if __name__ == "__main__":
-    model_instance = AlzheimerDetectionModel()
-    pretrained_model = model_instance.pretrained_model
-    model = model_instance.define_model(pretrained_model)
-
-    image = Image.open(os.path.expanduser('~/Projects/AlzheimerDiagnosisAssist/Data/OASIS/slices/demented/OAS1_0003_MR1_mpr_n4_anon_111_t88_gfc.img_ASL_40.jpg'))
-    input_data = np.array(image)
-    input_data.resize(32, 32)
-    reshaped_input = np.stack([input_data] * 3, axis=-1)  # Stack along the last axis to create 3 channels
-    reshaped_input = np.expand_dims(reshaped_input, axis=0)  # Add batch dimension
-
-    print(f"test image reshaped: {reshaped_input.shape}")
-
-    test_data_dir = os.path.expanduser('Tests/Data')
-
-    # Fit model to test dataset
-    dataset = preprocessing.image_dataset_from_directory(
-        test_data_dir,
-        image_size=(32, 32),
-        batch_size=3,
-        label_mode='categorical',
-        labels='inferred',
-        seed=123
-    )
-    for label in dataset.class_names:
-        print("label:", label)
-    model.fit(dataset, verbose=1)
-    predictions = model_instance.predict(model, reshaped_input)
-    predicted_class = np.argmax(predictions, axis=-1)
-    print(f'Predicted class: {predicted_class[:]}')
+    def decode_predictions(self, model: tf.keras.Model, predictions: np.ndarray) -> list:
+        # Decode the predictions
+        # Analyze skewness of the predictions
+        # Return prediction for each image in the series and overall probability of the disease.
+        return []
