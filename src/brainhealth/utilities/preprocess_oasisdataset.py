@@ -1,7 +1,7 @@
 import os
 import shutil
-
-from helpers import *
+import numpy as np
+from brainhealth.utilities import visualizer
 import SimpleITK as sitk
 import xml.etree.ElementTree as ET
 from torchvision import datasets, transforms
@@ -50,15 +50,15 @@ def extract_images(input_path: str, output_dir_path: str):
     for file in files:
         if file.endswith('.img') and file.find('masked') == -1:
             print(os.path.join(input_path, file))
-            extract_images_from_3D_array_slices_ANTS(
+            visualizer.extract_images_from_3D_array_slices_ANTS(
                 os.path.join(input_path, file),
                 output_dir_path,
                 'SAL') # extract axial slices
-            extract_images_from_3D_array_slices_ANTS(
+            visualizer.extract_images_from_3D_array_slices_ANTS(
                 os.path.join(input_path, file),
                 output_dir_path,
                 'LPI') # extract sagittal slices
-            extract_images_from_3D_array_slices_ANTS(
+            visualizer.extract_images_from_3D_array_slices_ANTS(
                 os.path.join(input_path, file),
                 output_dir_path,
                 'ASL') # extract coronal slices
@@ -104,7 +104,7 @@ def load_data(dataset_path: str) -> tuple[datasets.ImageFolder, datasets.ImageFo
 
 
 
-datasets_path = os.path.expanduser('~/Projects/AlzheimerDiagnosisAssist/Data/')
+datasets_path = os.path.expanduser('~/Projects/AlzheimerDiagnosisAssist/data/')
 OASIS_dataset_crosssec = os.path.join(datasets_path, 'OASIS', 'oasis_cross-sectional')
 oasis_demented_dir = os.path.join(datasets_path, 'OASIS', 'demented')
 oasis_nondemented_dir = os.path.join(datasets_path, 'OASIS', 'nondemented')
