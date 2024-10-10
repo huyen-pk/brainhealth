@@ -18,24 +18,24 @@ class ModelParams:
                  model_name: str, 
                  base_model_path: str, 
                  base_model_type: enums.ModelType,
-                 dataset_path: str,
                  models_repo_path: str,
                  model_dir: str):
         
         self.model_name = model_name
         self.base_model_path = base_model_path
         self.base_model_type = base_model_type
-        self.dataset_path = dataset_path
         self.models_repo_path = models_repo_path
         self.model_dir = model_dir
 
 class TrainingParams:
-    def __init__(self, 
+    def __init__(self,
+                 dataset_path: str,
                  optimizer: enums.ModelOptimizers = enums.ModelOptimizers.Adam,
                  batch_size=32, 
                  learning_rate=0.001, 
                  num_epoch=10,
                  kfold=5):
+        self.dataset_path = dataset_path
         self.optimizer = optimizer
         self.batch_size = batch_size
         self.learning_rate = learning_rate

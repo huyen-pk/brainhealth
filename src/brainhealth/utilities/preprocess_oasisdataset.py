@@ -2,11 +2,6 @@ import os
 import shutil
 import numpy as np
 from brainhealth.utilities import visualizer
-import SimpleITK as sitk
-import xml.etree.ElementTree as ET
-from torchvision import datasets, transforms
-import torch
-
 
 def classify_patients(OASIS_dataset_crosssec: str) -> tuple[list[str], list[str]]:
     demented = []
@@ -62,66 +57,3 @@ def extract_images(input_path: str, output_dir_path: str):
                 os.path.join(input_path, file),
                 output_dir_path,
                 'ASL') # extract coronal slices
-
-def get_sample_weights(dataset, train_dataset):
-    
-    # Code taken from:
-    #     https://www.maskaravivek.com/post/pytorch-weighted-random-sampler/
-    y_train_indices = train_dataset.indices
-    y_train = [dataset.targets[i] for i in y_train_indices]
-    
-    class_sample_counts = np.array([len(np.where(y_train == t)[0]) for t in np.unique(y_train)])
-    
-    weights = 1. / class_sample_counts
-    sample_weights = np.array([weights[t] for t in y_train])
-    sample_weights = torch.from_numpy(sample_weights)
-    
-    return sample_weights
-
-def load_data(dataset_path: str) -> tuple[datasets.ImageFolder, datasets.ImageFolder]:
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor()
-    ])
-    oasis_dataset = datasets.ImageFolder(
-        dataset_path,
-        transform=transform
-    )
-
-    proportions = [(1 - 0.15 - 0.15), 0.15, 0.15]
-    lengths = [int(p * len(oasis_dataset)) for p in proportions]
-    lengths[-1] = len(oasis_dataset) - sum(lengths[:-1])
-    train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(oasis_dataset, lengths)
-
-    sample_weights = get_sample_weights(oasis_dataset, train_dataset)
-    train_sampler = torch.utils.data.sampler.WeightedRandomSampler(sample_weights.type('torch.DoubleTensor'), len(sample_weights))
-    
-    # Creating loaders
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, sampler=train_sampler, drop_last=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=64, drop_last=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=64)
-    return oasis_dataset
-
-
-
-datasets_path = os.path.expanduser('~/Projects/AlzheimerDiagnosisAssist/data/')
-OASIS_dataset_crosssec = os.path.join(datasets_path, 'OASIS', 'oasis_cross-sectional')
-oasis_demented_dir = os.path.join(datasets_path, 'OASIS', 'demented')
-oasis_nondemented_dir = os.path.join(datasets_path, 'OASIS', 'nondemented')
-os.makedirs(oasis_demented_dir, exist_ok=True)
-os.makedirs(oasis_nondemented_dir, exist_ok=True)
-
-# demented, nondemented = classify_patients(OASIS_dataset_crosssec)
-
-# copy_files_to_classified_dir(demented, oasis_demented_dir)
-# copy_files_to_classified_dir(nondemented, oasis_nondemented_dir)
-# _, _, files = next(os.walk(oasis_demented_dir))
-# visualize_3D_array_slices_ANTS(os.path.join(oasis_demented_dir, files[0]), orientation='SAL')
-
-demented_slices = os.path.join(datasets_path, 'OASIS', 'slices', 'demented');
-os.makedirs(demented_slices, exist_ok=True)
-nondemented_slices = os.path.join(datasets_path, 'OASIS', 'slices', 'nondemented');
-os.makedirs(nondemented_slices, exist_ok=True)
-
-extract_images(oasis_demented_dir, demented_slices)
-extract_images(oasis_nondemented_dir, nondemented_slices)

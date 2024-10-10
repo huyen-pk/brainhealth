@@ -1,10 +1,14 @@
 import tensorflow as tf
+from keras import metrics
 
 class F1Score(tf.keras.metrics.Metric):
+    '''
+    Harmonic mean of precision and recall.
+    '''
     def __init__(self, name="f1_score", **kwargs):
         super(F1Score, self).__init__(name=name, **kwargs)
-        self.precision = tf.keras.metrics.Precision()
-        self.recall = tf.keras.metrics.Recall()
+        self.precision = metrics.Precision()
+        self.recall = metrics.Recall()
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         # Update precision and recall
