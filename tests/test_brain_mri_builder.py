@@ -29,8 +29,8 @@ class TestBrainMriModelBuilder():
             kfold=5
         )
 
-        model_builder = BrainMriModelBuilder(model_params=model_params, training_params=training_params)
-        pretrained_model = model_builder.base_model
+        model_builder = BrainMriModelBuilder()
+        pretrained_model = model_builder.load_base_model(model_params.base_model_type, model_params.base_model_path)
         model = model_builder.define_model(pretrained_model, training_params=training_params)
         yield {"model_builder": model_builder, "model": model}
 

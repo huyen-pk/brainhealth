@@ -1,6 +1,7 @@
 /data
 /draft
 /base_models
+/competitors
 *.code-workspace
 /__pycache__
 *.py[cod]

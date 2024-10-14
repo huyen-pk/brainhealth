@@ -1,14 +1,17 @@
 import os
 import tensorflow as tf
-from keras import preprocessing
+from keras import preprocessing as pp, optimizers as ops
+from keras import metrics as mt, losses as ls
+from keras import Model as Model
 from sklearn.model_selection import KFold
 import numpy as np
-from brainhealth.models import params
+from brainhealth.models import params, enums
+from brainhealth.metrics.evaluation_metrics import F1Score
 import copy
 
-class CrossValidationTrainer:
+class CrossValidationTrainer_TF:
 
-    def load_data(self, data_dir: str) -> tf.data.Dataset:
+    def __load_data__(self, data_dir: str, shuffle: bool) -> tf.data.Dataset:
         """
         Load the dataset and labels from directory structure where subdirectories represent different classes.
         Preprocess the images to a proper format.
@@ -23,16 +26,17 @@ class CrossValidationTrainer:
         if not os.path.exists(data_dir):
             raise FileNotFoundError(f'Directory not found: {data_dir}')
         
-        dataset = preprocessing.image_dataset_from_directory(
+        dataset = pp.image_dataset_from_directory(
             data_dir,
             image_size=(32, 32),
             color_mode='rgb',
             batch_size=32,
-            seed=123
+            seed=123,
+            shuffle=shuffle
         )
         return dataset
     
-    def dataset_to_numpy(self, dataset: tf.data.Dataset) -> tuple[np.ndarray, np.ndarray]:
+    def __dataset_to_numpy__(self, dataset: tf.data.Dataset) -> tuple[np.ndarray, np.ndarray]:
         images = []
         labels = []
         for image, label in dataset:
@@ -41,11 +45,10 @@ class CrossValidationTrainer:
         return np.array(images), np.array(labels)
 
     def train(self, 
-              data_dir: str, 
-              model: tf.keras.Model, 
+              model: Model, 
               model_params: params.ModelParams, 
               training_params: params.TrainingParams,
-              evaluation_metric: str) -> tuple[tf.keras.Model, str]:
+              evaluation_metric: str) -> tuple[Model, str]:
         
         if model is None:
             raise ValueError('Model is required for training')
@@ -56,12 +59,29 @@ class CrossValidationTrainer:
         if training_params is None:
             raise ValueError('Training parameters are required for training')
 
+        repo = os.path.join(model_params.models_repo_path, model_params.model_dir)
         tuned_model = copy.deepcopy(model)
 
-        # Prepare the data
-        dataset = self.load_data(data_dir)
-        images, labels = self.dataset_to_numpy(dataset)
+        optimizer=None
 
+        if training_params.optimizer == enums.ModelOptimizers.Adam:
+            optimizer = ops.Adam(learning_rate=training_params.learning_rate)
+        elif training_params.optimizer == enums.ModelOptimizers.SGD:
+            optimizer = ops.SGD(learning_rate=training_params.learning_rate)
+        else:
+            raise ValueError(f'Unsupported optimizer: {training_params.optimizer}')
+
+        # Compile the model
+        tuned_model.compile(
+            optimizer=optimizer,
+            loss=ls.CategoricalCrossentropy(),
+            metrics=[mt.Precision(), mt.Recall(), F1Score()]
+        )
+
+        # Prepare the data
+        dataset = self.__load_data__(data_dir=training_params.dataset_path, shuffle=True)
+        images, labels = self.__dataset_to_numpy__(dataset)
+        
         # KFold cross-validation
         kf = KFold(n_splits=training_params.kfold, shuffle=True, random_state=123)
         performance = []
@@ -121,20 +141,20 @@ class CrossValidationTrainer:
                 test_acc = metrics[0]
 
             # Save the retrained model for each fold
-            tuned_model.save(os.path.join(model_params.model_dir, f'{model_params.model_name}_fold_{fold}.h5'))
+            tuned_model.save(os.path.join(repo, f'{model_params.model_name}_fold_{fold}.h5'))
 
             # Store the performance of each fold
             performance.append((fold, test_loss, test_acc))
-            with open(os.path.join(model_params.model_dir,'performance.txt', 'a')) as f:
+            with open(os.path.join(repo,'performance.txt', 'a')) as f:
                 f.write(f'Fold {fold} - Test Loss: {test_loss}, Test {test_acc['metric']}: {test_acc['value']}\n')
 
         # Determine the best performing fold
         best_fold = max(performance, key=lambda x: x[2])
         best_fold_index = best_fold[0]
-        best_model_path = os.path.join(model_params.model_dir, f'{model_params.model_name}_fold_{best_fold_index}.h5')
+        best_model_path = os.path.join(repo, f'{model_params.model_name}_fold_{best_fold_index}.h5')
 
         # Save the best model as the final model
-        final_model_path = os.path.join(model_params.model_dir, f'{model_params.model_name}_best.h5')
+        final_model_path = os.path.join(repo, f'{model_params.model_name}_best.h5')
         os.rename(best_model_path, final_model_path)
         print(f'Best model saved as {final_model_path} with accuracy {best_fold[2]}')
         return (tuned_model, final_model_path)

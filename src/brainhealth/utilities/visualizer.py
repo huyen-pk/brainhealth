@@ -93,3 +93,48 @@ def rescale_linear(array: np.ndarray, new_min: int, new_max: int):
   m = (new_max - new_min) / (maximum - minimum)
   b = new_min - m * minimum
   return m * array + b
+
+def displayAllSlices(img):
+    # Get the image data
+    data = img.get_fdata()
+
+    # Print some basic info about the image
+    print("Image shape:", data.shape)
+    print("Affine matrix:\n", img.affine)
+
+    num_rows = 13
+    num_cols = 13
+    # Get the number of slices from the third element of the array
+    num_slices= data.shape[2]
+
+    # Check if the number of slices exceeds the grid size
+    num_slices_to_display = min(num_slices, num_rows * num_cols)
+
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
+
+    # Flatten the axes array for easy iteration
+    axes = axes.flatten()
+
+    # Loop through slices and plot them
+    for i in range(num_slices_to_display):
+        axes[i].imshow(data[:, :, i], cmap='gray')
+        axes[i].axis('off')  # Hide axis
+
+    # Turn off unused subplots
+    for j in range(num_slices_to_display, len(axes)):
+        axes[j].axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def displayOneSlice(img, slice_index):
+    # Get the image data
+    data = img.get_fdata()
+    print("Image shape:", data.shape)
+    print("Image affine:", img.affine)
+    # Display a the slices of the image
+    plt.imshow(data[:, :, slice_index, 0], cmap='gray')
+    plt.title(f'Slice {slice_index}')
+    plt.axis('off')
+    plt.show()

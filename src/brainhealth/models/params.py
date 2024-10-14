@@ -1,4 +1,5 @@
-import brainhealth.models.misc.enums as enums
+import os
+import brainhealth.models.enums as enums
 
 class ModelParams:
     """
