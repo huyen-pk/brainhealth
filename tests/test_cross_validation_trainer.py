@@ -6,9 +6,9 @@ from keras import layers
 from keras import models
 import numpy as np
 from brainhealth.metrics.evaluation_metrics import F1Score
-from brainhealth.models.misc.brain_result import BrainResult
-from brainhealth.models.misc.model_params import ModelParams, TrainingParams
-from brainhealth.models.misc.enums import ModelType, ModelOptimizers
+from brainhealth.models.brain_result import BrainResult
+from brainhealth.models.params import ModelParams, TrainingParams
+from brainhealth.models.enums import ModelType, ModelOptimizers
 class TestBrainMriModelBuilder():
     def fixup(self):
         model_params = ModelParams(

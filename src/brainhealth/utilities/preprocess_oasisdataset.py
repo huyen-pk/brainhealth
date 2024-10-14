@@ -57,3 +57,70 @@ def extract_images(input_path: str, output_dir_path: str):
                 os.path.join(input_path, file),
                 output_dir_path,
                 'ASL') # extract coronal slices
+            
+
+import nibabel as nib
+from nilearn import plotting
+from nilearn.datasets import fetch_atlas_aal
+import numpy as np
+import matplotlib.pyplot as plt
+
+def exploreData():
+    img = nib.load('/home/huyenpk/Projects/AlzheimerDiagnosisAssist/Data/OAS1_0042_MR1/FSL_SEG/OAS1_0042_MR1_mpr_n4_anon_111_t88_masked_gfc_fseg.img')
+    data = img.get_fdata()
+
+    # Print some basic info about the image
+    print("Image shape:", data.shape)
+    print("Affine matrix:\n", img.affine)
+    plt.imshow(data[:, 23, 15, 0], cmap='gray')
+    plt.show()
+    num_rows = 15
+    num_cols = 15
+    
+    # Get the number of slices from the third element of the array
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
+
+    # Flatten the axes array for easy iteration
+    axes = axes.flatten()
+
+    # Loop through first dimension and display all slices (saggital)
+    for i in range(min(data.shape[0], num_rows * num_cols)):
+        axes[i].imshow(data[i, :, :], cmap='gray')
+        axes[i].axis('off')  # Hide axis
+
+    # Loop through second dimension and display all slices (coronal)
+    for i in range(min(data.shape[1], num_rows * num_cols)):
+        axes[i].imshow(data[:, i, :], cmap='gray')
+        axes[i].axis('off')  # Hide axis
+
+    # Loop through third dimension and display all slices (axial)
+    for i in range(min(data.shape[2], num_rows * num_cols)):
+        axes[i].imshow(data[:, :, i], cmap='gray')
+        axes[i].axis('off')  # Hide axis
+
+    # Turn off unused subplots
+    for j in range(num_rows * num_cols, len(axes)):
+        axes[j].axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+def alignmentAAL(img):
+    # Fetch and load the AAL atlas
+    atlas = fetch_atlas_aal()
+    atlas_img = nib.load(atlas['maps'])
+    labels = atlas['labels']
+
+    # Extract hippocampal regions
+    hippocampus_mask = (atlas_img.get_fdata() == labels.index('Hippocampus_L')) | \
+                       (atlas_img.get_fdata() == labels.index('Hippocampus_R'))
+
+    hippocampus_img = nib.Nifti1Image(hippocampus_mask.astype(np.int32), img.affine)
+    plotting.plot_roi(hippocampus_img, bg_img=img, title="Hippocampal Regions from AAL Atlas", display_mode='ortho')
+    plotting.show()
+
+    # Display the image using nilearn's plot_anat function
+    plotting.plot_anat(img, title="Visualization of .img File")
+
+    # Show the plot
+    plt.show()
