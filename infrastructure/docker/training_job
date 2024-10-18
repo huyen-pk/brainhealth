@@ -1,0 +1,24 @@
+# Use an official Python runtime as a parent image
+FROM python:3.12
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the entire project into the container
+COPY ../../src/brainhealth /app
+COPY ../../setup.py /app
+
+# Move to the directory where setup.py is located
+WORKDIR /app
+
+# Install the local package, which includes dependencies from requirements.txt
+RUN pip install .
+
+# Move back to the root app directory for running the app
+WORKDIR /app
+
+# Make port 80 available to the world outside this container
+EXPOSE 80
+
+# Run the application
+# CMD ["python", "alzheimer_detection_brain_mri.py"]

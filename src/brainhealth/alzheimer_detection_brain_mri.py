@@ -20,7 +20,8 @@ class AlzheimerDetectionBrainMri:
         model_params = ModelParams(
             model_name='AlzheimerDetectionBrainMRI',
             base_model_path=os.getenv(VariableNames.BASE_MODEL_PATH),
-            base_model_type=ModelType.Keras)
+            base_model_type=ModelType.Keras,
+            models_repo_path=os.getenv(VariableNames.MODELS_REPO_DIR_PATH))
         model_params.models_repo_path=os.getenv(VariableNames.MODELS_REPO_DIR_PATH)
         model_params.model_dir=os.path.join(model_params.model_name, model_params.models_repo_path)
         

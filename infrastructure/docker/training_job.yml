@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  training_AD_detection_mri:
+    build:
+      context: .
+      dockerfile: training_job
+    depends_on:
+      - db_AD
+    command: ["python", "alzheimer_detection_brain_mri.py"]
+    environment:
+      MODELS_REPO_DIR_PATH: ${ALZHEIMER_MODELS_REPO_DIR_PATH}
+      BASE_MODEL_PATH: ${ALZHEIMER_BASE_MODEL_PATH}
+      TRAIN_DATA_DIR: ${ALZHEIMER_TRAIN_DATA_DIR}
+  
+  training_stroke_detection_mri:
+    build:
+      context: .
+      dockerfile: training_job
+    depends_on:
+      - db_stroke
+    command: ["python", "stroke_detection_brain_mri.py"]
+    environment:
+      MODELS_REPO_DIR_PATH: ${STROKE_MODELS_REPO_DIR_PATH}
+      BASE_MODEL_PATH: ${STROKE_BASE_MODEL_PATH}
+      TRAIN_DATA_DIR: ${STROKE_TRAIN_DATA_DIR}
+
+  db_AD:
+    image: postgres:13
+    container_name: ai_training_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: training_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  db_stroke:
+    image: postgres:13
+    container_name: ai_training_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: training_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

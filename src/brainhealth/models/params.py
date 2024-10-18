@@ -19,14 +19,14 @@ class ModelParams:
                  model_name: str, 
                  base_model_path: str, 
                  base_model_type: enums.ModelType,
-                 models_repo_path: str,
-                 model_dir: str):
+                 models_repo_path: str):
         
         self.model_name = model_name
         self.base_model_path = base_model_path
         self.base_model_type = base_model_type
         self.models_repo_path = models_repo_path
-        self.model_dir = model_dir
+        self.model_dir=os.path.join(self.model_name, self.models_repo_path)
+
 
 class TrainingParams:
     def __init__(self,
