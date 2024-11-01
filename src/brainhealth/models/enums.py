@@ -6,7 +6,6 @@ class ModelOptimizers(Enum):
     RMSprop = 'RMSprop'
     Adagrad = 'Adagrad'
     AdaMax = 'AdaMax'
-
 class ModelType(Enum):
     PyTorch = 'PyTorch'
     Keras = 'Keras'

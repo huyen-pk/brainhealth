@@ -5,9 +5,10 @@ from keras import metrics as mt, losses as ls
 from keras import Model as Model
 from sklearn.model_selection import KFold
 import numpy as np
-from brainhealth.models import params, enums
+from brainhealth.models import enums, params
 from brainhealth.metrics.evaluation_metrics import F1Score
 import copy
+
 
 class CrossValidationTrainer_TF:
 
@@ -23,9 +24,6 @@ class CrossValidationTrainer_TF:
         tf.data.Dataset: A TensorFlow dataset containing the images and labels.
         """
 
-        if not os.path.exists(data_dir):
-            raise FileNotFoundError(f'Directory not found: {data_dir}')
-        
         dataset = pp.image_dataset_from_directory(
             data_dir,
             image_size=(32, 32),

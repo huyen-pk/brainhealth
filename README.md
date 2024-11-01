@@ -1,2 +1,2 @@
-# neuroimg
+# Brain Health
 Process neuroimages

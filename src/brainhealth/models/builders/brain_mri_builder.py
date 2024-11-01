@@ -1,12 +1,14 @@
 import os
 import tensorflow as tf
 from keras import layers, models
-from brainhealth.models import enums
+from keras import utils
+from brainhealth.models import enums, params
+import tempfile
 
 class BrainMriModelBuilder:
     def load_base_model(self, 
                         model_type: enums.ModelType, 
-                        model_path: str) -> tf.keras.Model:
+                        model_file_path: str) -> tf.keras.Model:
         """
         Load a pre-trained model from a file path.
 
@@ -17,19 +19,26 @@ class BrainMriModelBuilder:
         Returns:
         tf.keras.Model: The pre-trained model.
         """
+        if model_file_path is None:
+            raise ValueError('Model file path is required.')
         
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f'Model not found at {model_path}')
+        # Attempt to download the model if the file does not exist
+        if not os.path.exists(model_file_path):
+            temp_file = tempfile.NamedTemporaryFile(delete=False).name
+            model_file_path = utils.get_file(temp_file, model_file_path)
+            if not os.path.exists(model_file_path) or os.path.getsize(model_file_path) == 0:
+                raise FileNotFoundError(f'Model not found at {model_file_path}')
         
         if model_type == enums.ModelType.Keras:
-            return models.load_model(model_path, compile=False)
+            return models.load_model(model_file_path, compile=False)
         elif model_type == enums.ModelType.PyTorch:
             raise NotImplementedError('PyTorch model conversion to TensorFlow is not supported yet.')
         else:
             raise ValueError(f'Unsupported model type: {model_type}')
 
     def define_model(self, 
-                     base_model: tf.keras.Model) -> tf.keras.Model:
+                     base_model: models.Model,
+                     model_params: params.ModelParams) -> tf.keras.Model:
         """
         Define the model architecture based on the foundation model and the training parameters.
 
@@ -65,3 +74,15 @@ class BrainMriModelBuilder:
 
         model.summary()
         return model
+    
+    def save_model(self, model: models.Model, model_dir: str) -> str:
+        """
+        Save the model to a directory.
+
+        Parameters:
+        model (tf.keras.Model): The model to save.
+        model_dir (str): The directory to save the model to.
+        """
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        model.save(model_dir)
