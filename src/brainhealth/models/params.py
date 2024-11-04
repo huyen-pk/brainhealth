@@ -35,10 +35,12 @@ class TrainingParams:
                  batch_size=32, 
                  learning_rate=0.001, 
                  num_epoch=10,
+                 steps_per_epoch=10,
                  kfold=5):
         self.dataset_path = dataset_path
         self.optimizer = optimizer
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.num_epoch = num_epoch
+        self.steps_per_epoch = steps_per_epoch
         self.kfold = kfold

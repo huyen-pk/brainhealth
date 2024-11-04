@@ -128,23 +128,23 @@ class CrossValidationTrainer_TF:
             # Evaluate the model on the test set
             results = tuned_model.evaluate(test_dataset, steps=len(test_dataset), return_dict=True)
             test_loss = results["loss"]
-            test_acc = {'metric': None, 'value' : None}
+            test_accuracy = {'metric': None, 'value' : None}
             metrics = []
             for key, value in results.items()[1:]:
                 metrics.append({'metric': key, 'value': value})
                 if(key == evaluation_metric):
-                    test_acc = {'metric': key, 'value': value}
+                    test_accuracy = {'metric': key, 'value': value}
             
-            if(test_acc['metric'] == None):
-                test_acc = metrics[0]
+            if(test_accuracy['metric'] == None):
+                test_accuracy = metrics[0]
 
             # Save the retrained model for each fold
             tuned_model.save(os.path.join(repo, f'{model_params.model_name}_fold_{fold}.h5'))
 
             # Store the performance of each fold
-            performance.append((fold, test_loss, test_acc))
+            performance.append((fold, test_loss, test_accuracy))
             with open(os.path.join(repo,'performance.txt', 'a')) as f:
-                f.write(f'Fold {fold} - Test Loss: {test_loss}, Test {test_acc['metric']}: {test_acc['value']}\n')
+                f.write(f'Fold {fold} - Test Loss: {test_loss}, Test {test_accuracy['metric']}: {test_accuracy['value']}\n')
 
         # Determine the best performing fold
         best_fold = max(performance, key=lambda x: x[2])
