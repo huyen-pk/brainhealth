@@ -5,14 +5,26 @@ from keras import metrics as mt, losses as ls
 from keras import Model as Model
 from brainhealth.models import enums, params
 from brainhealth.metrics.evaluation_metrics import F1Score
-from brainhealth.utilities.storage import Storage
+from infrastructure.storage import Storage
 from brainhealth.models import conf as config
 import copy
 
 class StreamingData_TF_Trainer:
     def __init__(self, storage: Storage) -> None:
         self.storage = storage
-        
+    
+    def __load_checkpoint__(self, checkpoint_dir: str, ) -> tf.train.Checkpoint:
+        """
+        Load a model from a checkpoint directory.
+
+        Parameters:
+        checkpoint_dir (str): The directory where the model checkpoint is saved.
+
+        Returns:
+        Model: The loaded model.
+        """
+        tf.train.Checkpoint
+        return Model.load_model(checkpoint_dir)
 
     def train(self, 
               model: Model, 

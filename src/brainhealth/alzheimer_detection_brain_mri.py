@@ -1,16 +1,12 @@
-import os
 from brainhealth.models.builders.brain_mri_builder import BrainMriModelBuilder
-from brainhealth.models.trainers.cross_validation_trainer import CrossValidationTrainer_TF as Trainer
+from brainhealth.models.trainers.trainer_base import Trainer
 from brainhealth.models.params import ModelParams, TrainingParams
 from brainhealth.models.enums import ModelOptimizers, ModelType
 from brainhealth.metrics.evaluation_metrics import F1Score
-from brainhealth.models.conf import VariableNames
-import numpy as np
-import argparse
 
 class AlzheimerDetectionBrainMri:
-    def __init__(self) -> None:
-        self.trainer = Trainer()
+    def __init__(self, trainer: Trainer) -> None:
+        self.trainer = trainer
 
 
     def train(self, 
@@ -40,26 +36,3 @@ class AlzheimerDetectionBrainMri:
                                           model_params=self.model_params)
         # Train & evaluate the model
         self.tuned_model, self.tuned_model_path = self.trainer.train(self.model, self.model_params, self.training_params, F1Score.__name__)
-
-    # def predict(self, dir) -> tuple[np.ndarray, np.ndarray]:
-    #     dataset = self.trainer.__load_data__(dir, shuffle=False)
-    #     file_names = dataset.list_files(shuffle=False)
-    #     predictions = self.tuned_model.predict(dataset)
-    #     return (file_names, predictions)
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Alzheimer Detection on Brain MRI')
-    parser.add_argument('--data', type=str, help='Directory containing MRI images for training')
-    parser.add_argument('--base', type=str, help='Path to foundation model to build our model upon')
-    parser.add_argument('--repo', type=str, help='Model repository')
-
-    args = parser.parse_args()
-    
-    train_data_dir = args.data if args.data else os.getenv(VariableNames.TRAIN_DATA_DIR)
-    base_model_path = args.base if args.base else os.getenv(VariableNames.BASE_MODEL_PATH)
-    models_repo_dir_path = args.repo if args.repo else os.getenv(VariableNames.MODELS_REPO_DIR_PATH)
-
-    model = AlzheimerDetectionBrainMri()
-    model.train(base_model_path=base_model_path, 
-                models_repo_dir_path=models_repo_dir_path, 
-                train_data_dir=train_data_dir)

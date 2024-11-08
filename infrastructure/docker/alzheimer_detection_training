@@ -1,0 +1,29 @@
+# Use an official Python runtime as a parent image
+FROM python:3.12
+
+ENV TRAIN_DATA_DIR="/app/data/test/"
+ENV BASE_MODEL_PATH="/app/base_models/"
+ENV MODELS_REPO_DIR_PATH="/app/models/"
+ENV PYTHONPATH="${PYTHONPATH}:/app/src"
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the entire project into the container
+COPY src/brainhealth /app/src/brainhealth
+COPY src/scripts /app/src/scripts
+COPY setup.py /app/setup.py
+COPY requirements.txt /app/requirements.txt
+COPY data/OASIS/slices_test /app/data/test
+
+# Move to the directory where setup.py is located
+WORKDIR /app
+
+# Install the local package, which includes dependencies from requirements.txt
+RUN pip install -r requirements.txt
+RUN pip install .
+# Move back to the root app directory for running the app
+WORKDIR /app
+
+# Make port 80 available to the world outside this container
+EXPOSE 80

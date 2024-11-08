@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from brainhealth.utilities.storage import Storage
+from infrastructure.storage import Storage
 
 # Fetch data from remote storage while training
 class DataFetcher(tf.keras.utils.Sequence):

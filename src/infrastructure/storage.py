@@ -80,11 +80,44 @@ class S3Storage(Storage):
         return np.array(images), np.array(labels)
 
 
+class LocalStorage(Storage):
+    def __init__(self, data_dir) -> None:
+        self.data_dir = data_dir
+        self.all_files = []
+        for root, dirs, files in os.walk(self.data_dir):
+            for file in files:
+                if file.endswith(('.png', '.jpg', '.jpeg')):
+                    self.all_files.append(os.path.join(root, file))
 
+        # Sort files to ensure consistent paging
+        self.all_files.sort()
+        self.start_index = 0
 
-if __name__ == '__main__':
-    downloader = S3Storage('brainhealthtrainingdata')
-    downloader.download(page_size=32, 
-                                page_index=0,
-                                page_count=1,
-                                folder_path='test')
+    def download(self, page_size, page_index, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+        
+        all_files = self.all_files
+        self.start_index = page_index * page_size
+        end_index = self.start_index + (page_size * page_count)
+        paged_files = all_files[self.start_index:end_index]
+
+        temp_dir = tempfile.mkdtemp()
+        for file_path in paged_files:
+            relative_path = os.path.relpath(file_path, self.data_dir)
+            dest_path = os.path.join(temp_dir, relative_path)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            os.symlink(file_path, dest_path)
+
+        dataset = pp.image_dataset_from_directory(
+            temp_dir,
+            image_size=(32, 32),
+            color_mode='rgb',
+            batch_size=32,
+            seed=123,
+            shuffle=True
+        )
+        images = []
+        labels = []
+        for image, label in dataset:
+            images.append(image.numpy())
+            labels.append(label.numpy())
+        return np.array(images), np.array(labels)

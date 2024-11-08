@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from botocore.exceptions import NoCredentialsError
 import numpy as np
-from brainhealth.utilities.storage import S3Storage
+from infrastructure.storage import S3Storage
 
 @pytest.fixture
 def s3downloader():

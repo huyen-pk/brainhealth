@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  training_ad_detection_mri:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/alzheimer_detection_training
+    # depends_on:
+    #   - db_AD
+    command: 
+      - "python"
+      - "src/scripts/alzheimer_detection_static_data_training.py"
+      # - "--data"
+      # - "${TRAIN_DATA_DIR}"
+      # - "--base"
+      # - "${BASE_MODEL_PATH}"
+      # - "--repo"
+      # - "${MODELS_REPO_DIR_PATH}"
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
