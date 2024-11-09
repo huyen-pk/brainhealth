@@ -8,12 +8,22 @@ from brainhealth.metrics.evaluation_metrics import F1Score
 from infrastructure.storage import Storage
 from brainhealth.models import conf as config
 import copy
+import asyncio
 
 class StreamingData_TF_Trainer:
     def __init__(self, storage: Storage) -> None:
         self.storage = storage
     
-    def __load_checkpoint__(self, checkpoint_dir: str, ) -> tf.train.Checkpoint:
+    async def __upload_checkpoint__(self, 
+                                    chkpt_local_path:str, 
+                                    bucket_name:str, 
+                                    key:str) -> None:
+        await self.storage.upload(chkpt_local_path,)
+                    
+    def __load_checkpoint__(self, 
+                            checkpoint_dir: str,
+                            model: Model, 
+                            optimizer: ops.Optimizer) -> tf.train.Checkpoint:
         """
         Load a model from a checkpoint directory.
 
@@ -23,8 +33,16 @@ class StreamingData_TF_Trainer:
         Returns:
         Model: The loaded model.
         """
-        tf.train.Checkpoint
-        return Model.load_model(checkpoint_dir)
+        # TODO: download latest checkpoint from storage
+        # Create a Checkpoint instance
+        checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
+        latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
+        if latest_checkpoint:
+            checkpoint.restore(latest_checkpoint)
+            print(f"Restored from {latest_checkpoint}")
+        else:
+            print("No checkpoint found, initializing from scratch.")
+        return checkpoint
 
     def train(self, 
               model: Model, 
@@ -59,6 +77,12 @@ class StreamingData_TF_Trainer:
             loss=ls.CategoricalCrossentropy(),
             metrics=[mt.Precision(), mt.Recall(), F1Score()]
         )
+        checkpoint_prefix = os.path.join(repo, 'ckpt')
+        checkpoint = self.__load_checkpoint__(
+            checkpoint_dir=repo, 
+            model=tuned_model, 
+            optimizer=optimizer)
+        save_every_n_batches = 50
         storage = self.storage
         # Prepare the data
         steps_per_epoch = training_params.steps_per_epoch  # Set according to the streaming data availability
@@ -106,6 +130,12 @@ class StreamingData_TF_Trainer:
                         loss = tuned_model.compute_loss(labels, predictions)
                     gradients = tape.gradient(loss, tuned_model.trainable_variables)
                     optimizer.apply_gradients(zip(gradients, tuned_model.trainable_variables))
+
+                if step % save_every_n_batches == 0:
+                    chkpt_local_path = checkpoint.save(file_prefix=checkpoint_prefix) # Start async task to save the checkpoint to storage
+                    # Run the async upload task
+                    asyncio.run(self.__upload_checkpoint__(chkpt_local_path,))
+                    print(f"Checkpoint saved at batch {step} in epoch {epoch + 1}")
 
                 # Log progress
                 if step % 10 == 0:

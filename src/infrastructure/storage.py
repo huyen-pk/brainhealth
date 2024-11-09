@@ -11,6 +11,10 @@ class Storage(ABC):
     def download(self, page_size, page_index, page_count=1, **kwargs):
         pass
 
+    @abstractmethod
+    def upload(self, file_path, prefix):
+        pass
+
 
 class S3Storage(Storage):
     def __init__(self, bucket_name) -> None:
@@ -51,7 +55,7 @@ class S3Storage(Storage):
                         if not os.path.basename(key) == "":
                             local_file_path = os.path.join(local_path, key)
                             os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-                            s3.download_file(bucket_name, key, local_file_path)
+                            s3.download_file(Bucket=bucket_name, Key=key, Filename=local_file_path)
                             print(f'Successfully downloaded {key} from bucket {bucket_name} to {local_file_path}')
 
                     if 'NextContinuationToken' in page_iterator:
@@ -79,6 +83,16 @@ class S3Storage(Storage):
             labels.append(label.numpy())
         return np.array(images), np.array(labels)
 
+    def upload(self, file_path, prefix):
+        s3 = self.s3
+        bucket_name = self.bucket_name
+        try:
+            s3.upload_file(Filename=file_path, Bucket=bucket_name, Key=prefix)
+            print(f'Successfully uploaded {file_path} to {bucket_name}/{prefix}')
+        except FileNotFoundError:
+            print(f'The file was not found: {file_path}')
+        except NoCredentialsError:
+            print('Credentials not available')
 
 class LocalStorage(Storage):
     def __init__(self, data_dir) -> None:

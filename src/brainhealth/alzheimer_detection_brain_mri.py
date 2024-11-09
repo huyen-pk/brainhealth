@@ -5,15 +5,23 @@ from brainhealth.models.enums import ModelOptimizers, ModelType
 from brainhealth.metrics.evaluation_metrics import F1Score
 
 class AlzheimerDetectionBrainMri:
+
     def __init__(self, trainer: Trainer) -> None:
         self.trainer = trainer
-
 
     def train(self, 
               base_model_path: str,
               models_repo_dir_path: str,
               train_data_dir: str) -> None:
-
+        """
+        Trains the Alzheimer detection model using brain MRI data.
+        Args:
+            base_model_path (str): Local path or download url to the pre-trained base model file.
+            models_repo_dir_path (str): Directory path where the trained models will be saved.
+            train_data_dir (str): Directory path containing the training data.
+        Returns:
+            None
+        """
         self.training_params = TrainingParams(
             dataset_path=train_data_dir,
             batch_size=32,

@@ -2,10 +2,25 @@ import os
 import tensorflow as tf
 from keras import layers, models
 from keras import utils
+from keras import Model as Model
 from brainhealth.models import enums, params
 import tempfile
 
 class BrainMriModelBuilder:
+        
+    def __download_model__(self, model_url: str) -> str:
+        """
+        Download a model from a file.
+
+        Parameters:
+        model_url (str): The url to download the model file.
+
+        Returns:
+        str: Local path to downloaded file.
+        """
+        temp_file = tempfile.NamedTemporaryFile(delete=False).name
+        return utils.get_file(fname=temp_file, origin=model_url, extract=True)
+    
     def load_base_model(self, 
                         model_type: enums.ModelType, 
                         model_file_path: str) -> tf.keras.Model:
@@ -24,8 +39,8 @@ class BrainMriModelBuilder:
         
         # Attempt to download the model if the file does not exist
         if not os.path.exists(model_file_path):
-            temp_file = tempfile.NamedTemporaryFile(delete=False).name
-            model_file_path = utils.get_file(temp_file, model_file_path)
+            model_url = model_file_path
+            model_file_path = self.__download_model__(model_url)
             if not os.path.exists(model_file_path) or os.path.getsize(model_file_path) == 0:
                 raise FileNotFoundError(f'Model not found at {model_file_path}')
         
