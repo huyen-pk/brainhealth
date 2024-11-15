@@ -1,13 +1,11 @@
 from brainhealth.models.builders.brain_mri_builder import BrainMriModelBuilder
-from brainhealth.models.trainers.trainer_base import Trainer
 from brainhealth.models.params import ModelParams, TrainingParams
 from brainhealth.models.enums import ModelOptimizers, ModelType
-from brainhealth.metrics.evaluation_metrics import F1Score
 
 class AlzheimerDetectionBrainMri:
 
-    def __init__(self, trainer: Trainer) -> None:
-        self.trainer = trainer
+    def __init__(self, builder: BrainMriModelBuilder) -> None:
+        self.builder = builder
 
     def train(self, 
               base_model_path: str,
@@ -22,7 +20,7 @@ class AlzheimerDetectionBrainMri:
         Returns:
             None
         """
-        self.training_params = TrainingParams(
+        training_params = TrainingParams(
             dataset_path=train_data_dir,
             batch_size=32,
             num_epoch=10,
@@ -30,17 +28,19 @@ class AlzheimerDetectionBrainMri:
             optimizer=ModelOptimizers.Adam,
             kfold=5
         )
-        self.model_params = ModelParams(
+        model_params = ModelParams(
             model_name='AlzheimerDetectionBrainMRI',
             base_model_path=base_model_path,
             base_model_type=ModelType.Keras,
             models_repo_path=models_repo_dir_path)
         
-        # Define the model
-        builder = BrainMriModelBuilder()
-        base_model = builder.load_base_model(model_type=self.model_params.base_model_type, 
-                                            model_file_path=self.model_params.base_model_path)
-        self.model = builder.define_model(base_model=base_model, 
-                                          model_params=self.model_params)
+       
+        model, checkpoint = self.builder.build(
+            model_file_path=base_model_path,
+            model_type=ModelType.Keras,
+            model_params=model_params,
+            training_params=training_params
+        )
         # Train & evaluate the model
-        self.tuned_model, self.tuned_model_path = self.trainer.train(self.model, self.model_params, self.training_params, F1Score.__name__)
+        tuned_model, tuned_model_path = self.builder.train(
+            model=model, model_params=model_params, training_params=training_params, checkpoint=checkpoint)

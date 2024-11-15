@@ -14,7 +14,7 @@ class DataFetcher(tf.keras.utils.Sequence):
     
     def __getitem__(self, index):
         # Fetch data for the batch
-        images, labels = self.storage.download(page_size=32, 
+        images, labels = self.storage.get_dataset(page_size=32, 
                                                 page_index=index,
                                                 page_count=1)
 
@@ -43,7 +43,7 @@ class StaticDataFetcher:
         return example_proto.SerializeToString()
 
     def create_tfrecord(self, tfrecord_file):
-        images, labels = self.storage.download(page_size=32, page_index=0)
+        images, labels = self.storage.get_dataset(page_size=32, page_index=0)
         with tf.io.TFRecordWriter(tfrecord_file) as writer:
             for image, label in zip(images, labels):
                 tf_example = self.serialize_example(image, label)

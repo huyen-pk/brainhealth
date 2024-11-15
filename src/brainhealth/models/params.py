@@ -24,8 +24,6 @@ class ModelParams:
         self.model_name = model_name
         self.base_model_path = base_model_path
         self.base_model_type = base_model_type
-        self.models_repo_path = models_repo_path
-        self.model_dir=os.path.join(self.model_name, self.models_repo_path)
 
 
 class TrainingParams:

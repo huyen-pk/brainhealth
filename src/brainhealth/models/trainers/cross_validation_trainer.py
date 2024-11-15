@@ -7,11 +7,10 @@ from sklearn.model_selection import KFold
 import numpy as np
 from brainhealth.models import enums, params
 from brainhealth.metrics.evaluation_metrics import F1Score
-from brainhealth.models.trainers.trainer_base import Trainer
 import copy
 
 
-class CrossValidationTrainer_TF(Trainer):
+class CrossValidationTrainer_TF():
 
     def __load_data__(self, data_dir: str, shuffle: bool) -> tf.data.Dataset:
         """

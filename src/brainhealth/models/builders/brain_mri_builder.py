@@ -1,55 +1,14 @@
-import os
 import tensorflow as tf
 from keras import layers, models
-from keras import utils
-from keras import Model as Model
-from brainhealth.models import enums, params
-import tempfile
+from brainhealth.models import params
+from brainhealth.models.builders.builder_base import ModelBuilderBase
+from infrastructure.units_of_work import ModelTrainingDataDomain
 
-class BrainMriModelBuilder:
-        
-    def __download_model__(self, model_url: str) -> str:
-        """
-        Download a model from a file.
 
-        Parameters:
-        model_url (str): The url to download the model file.
+class BrainMriModelBuilder(ModelBuilderBase):
 
-        Returns:
-        str: Local path to downloaded file.
-        """
-        temp_file = tempfile.NamedTemporaryFile(delete=False).name
-        return utils.get_file(fname=temp_file, origin=model_url, extract=True)
-    
-    def load_base_model(self, 
-                        model_type: enums.ModelType, 
-                        model_file_path: str) -> tf.keras.Model:
-        """
-        Load a pre-trained model from a file path.
-
-        Parameters:
-        model_type (enums.ModelType): The type of the model to load.
-        model_path (str): The file path to the pre-trained model.
-
-        Returns:
-        tf.keras.Model: The pre-trained model.
-        """
-        if model_file_path is None:
-            raise ValueError('Model file path is required.')
-        
-        # Attempt to download the model if the file does not exist
-        if not os.path.exists(model_file_path):
-            model_url = model_file_path
-            model_file_path = self.__download_model__(model_url)
-            if not os.path.exists(model_file_path) or os.path.getsize(model_file_path) == 0:
-                raise FileNotFoundError(f'Model not found at {model_file_path}')
-        
-        if model_type == enums.ModelType.Keras:
-            return models.load_model(model_file_path, compile=False)
-        elif model_type == enums.ModelType.PyTorch:
-            raise NotImplementedError('PyTorch model conversion to TensorFlow is not supported yet.')
-        else:
-            raise ValueError(f'Unsupported model type: {model_type}')
+    def __init__(self, data_domain: ModelTrainingDataDomain) -> None:
+        self.data_domain = data_domain
 
     def define_model(self, 
                      base_model: models.Model,
@@ -90,14 +49,13 @@ class BrainMriModelBuilder:
         model.summary()
         return model
     
-    def save_model(self, model: models.Model, model_dir: str) -> str:
-        """
-        Save the model to a directory.
-
-        Parameters:
-        model (tf.keras.Model): The model to save.
-        model_dir (str): The directory to save the model to.
-        """
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
-        model.save(model_dir)
+    def fetch_data(self, 
+                   page_index: int, 
+                   training_params: params.TrainingParams,
+                   **kwargs) -> tuple[tf.Tensor, tf.Tensor]:
+        images, labels = self.data_domain.get_dataset(
+                    page_size=training_params.batch_size,
+                    page_index=page_index,
+                    page_count=1,
+                    continuation_token=kwargs.get('continuation_token', None))
+        return images, labels
