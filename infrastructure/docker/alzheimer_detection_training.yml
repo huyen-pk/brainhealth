@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   training_ad_detection_mri:
     build:

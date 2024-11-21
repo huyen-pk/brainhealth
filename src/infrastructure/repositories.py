@@ -69,7 +69,7 @@ class ModelRepository():
     def __init__(self, storage: S3Storage) -> None:
         self.storage = storage
         
-    def get(self, model_url: str) -> Model:
+    def get(self, model_name: str) -> Model:
         """
         Download a model from a url.
 
@@ -79,8 +79,10 @@ class ModelRepository():
         Returns:
         str: Local path to downloaded file.
         """
-        temp_file = tempfile.NamedTemporaryFile(delete=False).name
-        model_file_path = utils.get_file(fname=temp_file, origin=model_url, extract=True)
+        # TODO: get the filename and suffix to download from database, for now let's assume the model is .h5
+        # TODO: exception handling
+        model_file_path = os.path.join(self.get_local_path(model_name), f'{model_name}.h5')
+        self.storage.get(model_name, model_file_path)
         return self.load_from_file(model_file_path)
     
     def load_from_file(self, model_file_path: str) -> Model:
@@ -96,7 +98,6 @@ class ModelRepository():
         if model_file_path is None:
             raise ValueError('Model file path is required.')
         
-        # Attempt to download the model if the file does not exist
         if not os.path.exists(model_file_path) or os.path.getsize(model_file_path) == 0:
                 raise FileNotFoundError(f'Model not found at {model_file_path}')
         
@@ -131,18 +132,20 @@ class S3ImageDatasetRepository():
         self.storage = storage
     
     def get(self, 
+            model_name: str,
             page_size:int, 
             page_index:int, # starting page index to download
             page_count = 1,
             **kwargs) -> tuple[np.ndarray, np.ndarray]:
 
+        save_to = self.get_local_path(model_name, page_index)
         continuation_token = kwargs.get('continuation_token', None)
-        folder_path = kwargs.get('folder_path', '')
-        local_path = self.storage.paging(page_size=page_size,
-                              page_index=page_index,
-                              page_count=page_count,
-                              continuation_token=continuation_token,
-                              folder_path=folder_path)
+        local_path = self.storage.paging(save_to=save_to,
+                                page_size=page_size,
+                                page_index=page_index,
+                                page_count=page_count,
+                                continuation_token=continuation_token,
+                                folder_path=model_name)
 
         dataset = pp.image_dataset_from_directory(
             local_path,
@@ -158,9 +161,9 @@ class S3ImageDatasetRepository():
             images.append(image.numpy())
             labels.append(label.numpy())
         return np.array(images), np.array(labels)
-    
-    def get_local_path(self, model_name: str):
-        local_storage = os.path.join(tempfile.gettempdir(), 'datasets', model_name)
+
+    def get_local_path(self, model_name: str, batch_index: int):
+        local_storage = os.path.join(tempfile.gettempdir(), 'datasets', model_name, f'batch_{batch_index}')
         os.makedirs(local_storage, exist_ok=True)
         return local_storage
     

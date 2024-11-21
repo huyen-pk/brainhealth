@@ -8,23 +8,23 @@ from infrastructure.denpendency_container import DependencyContainer
 
 parser = argparse.ArgumentParser(description='Alzheimer Detection on Brain MRI')
 parser.add_argument('--data', type=str, help='Directory containing MRI images for training')
-parser.add_argument('--base', type=str, help='Path to foundation model to build our model upon')
-parser.add_argument('--repo', type=str, help='Model repository')
+parser.add_argument('--model', type=str, help='Path to foundation model to build our model upon')
+parser.add_argument('--checkpoint', type=str, help='Model repository')
 args = parser.parse_args()
 
-print("data: ", os.getenv(VariableNames.TRAIN_DATA_DIR))
-print("base model:", os.getenv(VariableNames.BASE_MODEL_PATH))
-print("model repo: ", os.getenv(VariableNames.MODELS_REPO_DIR_PATH))
-print("storage: ", os.getenv(VariableNames.S3_BUCKET_NAME))
+print("model: ", os.getenv(VariableNames.MODEL_STORAGE_CONNECTION_STRING))
+print("checkpoint:", os.getenv(VariableNames.CHECKPOINT_STORAGE_CONNECTION_STRING))
+print("dataset: ", os.getenv(VariableNames.DATASET_STORAGE_CONNECTION_STRING))
 
-train_data_dir = args.data if args.data else os.getenv(VariableNames.TRAIN_DATA_DIR)
-base_model_path = args.base if args.base else os.getenv(VariableNames.BASE_MODEL_PATH)
-models_repo_dir_path = args.repo if args.repo else os.getenv(VariableNames.MODELS_REPO_DIR_PATH)
+model_storage = args.model if args.model else os.getenv(VariableNames.MODEL_STORAGE_CONNECTION_STRING)
+checkpoint_storage = args.checkpoint if args.checkpoint else os.getenv(VariableNames.CHECKPOINT_STORAGE_CONNECTION_STRING)
+dataset_storage = args.data if args.data else os.getenv(VariableNames.DATASET_STORAGE_CONNECTION_STRING)
+
 di_container = DependencyContainer.configure_injector()
 builder = di_container.get(BrainMriModelBuilder)
 
 training_params = TrainingParams(
-            dataset_path=train_data_dir,
+            dataset_path=None,
             batch_size=32,
             num_epoch=10,
             learning_rate=0.001,
@@ -33,17 +33,17 @@ training_params = TrainingParams(
         )
 model_params = ModelParams(
             model_name='AlzheimerDetectionBrainMRI',
-            base_model_path=base_model_path,
+            base_model_path=None,
             base_model_type=ModelType.Keras,
-            models_repo_path=models_repo_dir_path)
+            models_repo_path=None)
         
        
 model, checkpoint = builder.build(
-            model_file_path=base_model_path,
+            model_file_path=None,
             model_type=ModelType.Keras,
             model_params=model_params,
             training_params=training_params
         )
-# # Train & evaluate the model
-# tuned_model, tuned_model_path = builder.train(
-#             model=model, model_params=model_params, training_params=training_params, checkpoint=checkpoint)
+# Train & evaluate the model
+tuned_model, tuned_model_path = builder.train(
+            model=model, model_params=model_params, training_params=training_params, checkpoint=checkpoint)

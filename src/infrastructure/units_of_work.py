@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from infrastructure.repositories import ModelRepository, CheckpointRepository, S3ImageDatasetRepository
 import tensorflow as tf
@@ -13,8 +14,8 @@ class ModelTrainingDataDomain(ABC):
         self.checkpoint_repository = checkpoint_repository
         self.dataset_repository = dataset_repository
 
-    def get_model(self, model_url: str) -> Model:
-        return self.model_repository.get(model_url)
+    def get_model(self, model_name: str) -> Model:
+        return self.model_repository.get(model_name)
 
     def save_model(self, file_path, model):
         self.model_repository.save(file_path, model)
@@ -24,6 +25,11 @@ class ModelTrainingDataDomain(ABC):
     
     def get_dataset(self, page_size, page_index, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         return self.dataset_repository.get(page_size, page_index, page_count, **kwargs)
+    
+    def purge_dataset(self, model_name: str, batch_index: int) -> None:
+        local_path = self.dataset_repository.get_local_path(model_name, batch_index)
+        if os.path.exists(local_path):
+            os.rmdir(local_path)
 
     def get_latest_checkpoint(self, model_name) -> str:
         """

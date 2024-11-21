@@ -10,17 +10,17 @@ class AppModule(Module):
     @provider
     @singleton
     def provide_model_repository(self) -> ModelRepository:
-        return ModelRepository(storage=S3Storage(os.getenv(VariableNames.MODEL_BUCKET_NAME), None, None))
+        return ModelRepository(storage=S3Storage(os.getenv(VariableNames.MODEL_STORAGE_CONNECTION_STRING)))
     
     @provider
     @singleton
     def provide_checkpoint_repository(self) -> CheckpointRepository:
-        return CheckpointRepository(storage=S3Storage(os.getenv(VariableNames.CHECKPOINT_BUCKET_NAME), None, None))
+        return CheckpointRepository(storage=S3Storage(os.getenv(VariableNames.CHECKPOINT_STORAGE_CONNECTION_STRING)))
 
     @provider
     @singleton
     def provide_dataset_repository(self) -> S3ImageDatasetRepository:
-        return S3ImageDatasetRepository(storage=S3Storage(os.getenv(VariableNames.DATASET_BUCKET_NAME), None, None))
+        return S3ImageDatasetRepository(storage=S3Storage(os.getenv(VariableNames.DATASET_STORAGE_CONNECTION_STRING)))
 
     @provider
     @threadlocal

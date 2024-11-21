@@ -12,6 +12,7 @@ WORKDIR /app
 # Copy the entire project into the container
 COPY src/brainhealth /app/src/brainhealth
 COPY src/scripts /app/src/scripts
+COPY src/infrastructure /app/src/infrastructure
 COPY setup.py /app/setup.py
 COPY requirements.txt /app/requirements.txt
 COPY data/OASIS/slices_test /app/data/test

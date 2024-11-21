@@ -243,7 +243,7 @@ class ModelBuilderBase(ABC):
 
             for step in range(steps_per_epoch):
                 # Fetch a batch of data from the stream
-                batchX, labels = self.builder.fetch_data(
+                batchX, labels = self.fetch_data(
                     page_index=step, 
                     training_params=training_params, 
                     continuation_token=continuation_token
@@ -263,6 +263,8 @@ class ModelBuilderBase(ABC):
                 # Log progress
                 if step % 10 == 0:
                     print(f"Step {step + 1}/{steps_per_epoch}, Loss: {loss.numpy():.4f}")
+                
+                self.data_domain.purge_dataset(model_name=model_params.model_name, batch_index=step)
 
         # Save the model
         final_model_path = os.path.join(repo, f'{model_params.model_name}.h5')

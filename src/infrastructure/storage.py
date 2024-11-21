@@ -5,7 +5,7 @@ import os
 import numpy as np
 from keras import preprocessing as pp
 from abc import ABC, abstractmethod
-
+import json
 class BlobStorage(ABC):
     @abstractmethod
     def get(self, key: str, local_file_path: str) -> str:
@@ -23,10 +23,17 @@ class BlobStorage(ABC):
                 **kwargs) -> tuple[np.ndarray, np.ndarray]:
         pass
 class S3Storage(BlobStorage):
-    def __init__(self, bucket_name: str, session: str, token: str) -> None:
-        self.s3 = boto3.client('s3')
-        # TODO: initilze boto client with session and credentials attributed to role/repository
-        self.bucket_name = bucket_name   
+    def __init__(self, connection_string: str) -> None:
+        connection_info = json.loads(connection_string)
+        bucket_name = connection_info['bucket_name']
+        access_key = connection_info['access_key']
+        access_secret = connection_info['access_secret']
+        self.s3 = boto3.client(
+            's3',
+            aws_access_key_id=access_key,
+            aws_secret_access_key=access_secret
+        )
+        self.bucket_name = bucket_name
         
     def get(self, key: str, local_file_path: str) -> str:
         bucket_name = self.bucket_name
@@ -34,6 +41,7 @@ class S3Storage(BlobStorage):
         return local_file_path
 
     def paging(self, 
+                save_to: str,
                 page_size:int, 
                 page_index:int, # starting page index to download
                 page_count = 1,
@@ -42,43 +50,39 @@ class S3Storage(BlobStorage):
         bucket_name = self.bucket_name 
         continuation_token = kwargs.get('continuation_token', None)
         folder_path = kwargs.get('folder_path', '')
-        save_to = ''
         paginator = s3.get_paginator('list_objects_v2')
 
-        with tempfile.TemporaryDirectory(delete=False) as temp_dir:
-            save_to = os.path.join(temp_dir, bucket_name)
-            os.makedirs(save_to, exist_ok=True)
-            try:
-                for page_number in range(page_index + page_count):
-                    page_iterator = paginator.paginate(
-                                        Bucket=bucket_name, 
-                                        Prefix=folder_path,
-                                        PaginationConfig={
-                                            'PageSize': page_size,
-                                            'StartingToken': continuation_token
-                                        })
-                    # Skip pages until the desired page index
-                    if page_number < page_index:
-                        continue
-                    page = page_iterator.build_full_result()
-                    for obj in page.get('Contents', []):
-                        key = obj['Key']
-                        print("Downloading object: ", os.path.basename(key))
-                        if not os.path.basename(key) == "":
-                            local_file_path = os.path.join(save_to, key)
-                            os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-                            s3.download_file(Bucket=bucket_name, Key=key, Filename=local_file_path)
-                            print(f'Successfully downloaded {key} from bucket {bucket_name} to {local_file_path}')
-
-                    if 'NextContinuationToken' in page_iterator:
-                        continuation_token = page_iterator['NextContinuationToken']
-                    else:
-                        print('No more pages to download')
-                        break
-            except FileNotFoundError:
-                print(f'The file was not found: {save_to}')
-            except NoCredentialsError:
-                print('Credentials not available')
+        os.makedirs(save_to, exist_ok=True)
+        try:
+            for page_number in range(page_index + page_count):
+                page_iterator = paginator.paginate(
+                                    Bucket=bucket_name, 
+                                    Prefix=folder_path, # model_name: training data for the given model
+                                    PaginationConfig={
+                                        'PageSize': page_size,
+                                        'StartingToken': continuation_token
+                                    })
+                # Skip pages until the desired page index
+                if page_number < page_index:
+                    continue
+                page = page_iterator.build_full_result()
+                for obj in page.get('Contents', []):
+                    key = obj['Key']
+                    print("Downloading object: ", os.path.basename(key))
+                    if not os.path.basename(key) == "":
+                        local_file_path = os.path.join(save_to, key)
+                        os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+                        s3.download_file(Bucket=bucket_name, Key=key, Filename=local_file_path)
+                        print(f'Successfully downloaded {key} from bucket {bucket_name} to {local_file_path}')
+                if 'NextContinuationToken' in page_iterator:
+                    continuation_token = page_iterator['NextContinuationToken']
+                else:
+                    print('No more pages to download')
+                    break
+        except FileNotFoundError:
+            print(f'The file was not found: {save_to}')
+        except NoCredentialsError:
+            print('Credentials not available')
 
         return save_to
 
