@@ -1,6 +1,9 @@
 # Use an official Python runtime as a parent image
 FROM python:3.12
 
+ENV TRAIN_DATA_DIR="/app/data/test/"
+ENV MODELS_REPO_DIR_PATH="/app/models/"
+ENV CHECKPOINT_REPO_DIR_PATH="/app/checkpoints/"
 ENV PYTHONPATH="${PYTHONPATH}:/app/src"
 
 # Set the working directory in the container
@@ -8,11 +11,15 @@ WORKDIR /app
 
 # Copy the entire project into the container
 COPY src/brainhealth /app/src/brainhealth
-COPY src/scripts/*.py /app/src/scripts
+# COPY src/scripts/*.py /app/src/scripts
+RUN mkdir -p /app/src/infrastructure
 COPY src/infrastructure/*.py /app/src/infrastructure
 COPY base_models /app/models
+RUN mkdir -p /app/src/scripts
+COPY tests/scripts/*.py /app/src/scripts
 COPY setup.py /app/setup.py
 COPY requirements.txt /app/requirements.txt
+COPY data/OASIS/slices_test /app/data/test
 
 # Move to the directory where setup.py is located
 WORKDIR /app

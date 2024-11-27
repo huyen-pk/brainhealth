@@ -42,9 +42,9 @@ class S3Storage(BlobStorage):
 
     def paging(self, 
                 save_to: str,
-                page_size:int, 
+                page_size:int, # number of items to download per page
                 page_index:int, # starting page index to download
-                page_count = 1,
+                page_count = 1, # number of pages to download
                 **kwargs) -> tuple[np.ndarray, np.ndarray]:
         s3 = self.s3
         bucket_name = self.bucket_name 
@@ -137,7 +137,7 @@ class LocalStorage(BlobStorage):
             temp_dir,
             image_size=(32, 32),
             color_mode='rgb',
-            batch_size=32,
+            batch_size=page_size,
             seed=123,
             shuffle=True
         )

@@ -1,12 +1,10 @@
-import boto3
 from botocore.exceptions import NoCredentialsError
 import tempfile
 import os
 import numpy as np
 import tensorflow as tf
 from keras import preprocessing as pp
-from keras import Model, models, utils
-from keras import optimizers as ops
+from keras import Model, models
 from .storage import S3Storage
 import tempfile
 
@@ -16,7 +14,7 @@ class CheckpointRepository():
 
     def get_latest(self, 
             model_name: str,
-            **kwargs) -> tf.train.Checkpoint:
+            **kwargs) -> str:
         """
         Load a model from a checkpoint directory.
 
@@ -24,7 +22,7 @@ class CheckpointRepository():
         checkpoint_dir (str): The directory where the model checkpoint is saved.
 
         Returns:
-        Model: The loaded model.
+        str: Path to the saved checkpoint.
         """
         # Download the last 5 checkpoints from storage
         continuation_token = kwargs.get('continuation_token', None)
@@ -35,7 +33,6 @@ class CheckpointRepository():
                               page_count=1,
                               continuation_token=continuation_token,
                               folder_path=checkpoint_dir)
-        # Create a Checkpoint instance
         return tf.train.latest_checkpoint(checkpoints)
         
     def save(self, model_name: str, checkpoint: tf.train.Checkpoint):
@@ -81,6 +78,7 @@ class ModelRepository():
         """
         # TODO: get the filename and suffix to download from database, for now let's assume the model is .h5
         # TODO: exception handling
+        # TODO: load from cache if available or refresh cache
         model_file_path = os.path.join(self.get_local_path(model_name), f'{model_name}.h5')
         self.storage.get(model_name, model_file_path)
         return self.load_from_file(model_file_path)
@@ -103,11 +101,10 @@ class ModelRepository():
         
         return models.load_model(model_file_path, compile=False)
 
-    def save(self, model: Model, model_name:str, file_path: str):
+    def save(self, model_name:str, file_path: str):
         storage = self.storage
         bucket_name = self.bucket_name
         try:
-            model.save(file_path)
             # TODO: get the prefix(directory path) from database
             storage.save(file_path=file_path, prefix=model_name)
             print(f'Successfully uploaded {file_path} to {bucket_name}')
@@ -121,11 +118,11 @@ class ModelRepository():
         os.makedirs(local_repository, exist_ok=True)
         return local_repository
     
-    def save_performance_metrics(self, epoch: int, model_name: str, metrics: dict, description: str):
+    def save_performance_metrics(self, epoch: int, model_name: str, metrics: dict, description: dict):
         file_path = os.path.join(self.get_local_path(model_name), "performance.txt")
         with open(file_path, 'a') as file:
             for metric, value in metrics.items():
-                file.write(f"Epoch {epoch}: {metric} = {value} | Description: {description}\n")
+                file.write(f"Epoch {epoch}: {metric} = {value} | Description: {description[metric]}\n")
     
 class S3ImageDatasetRepository():
     def __init__(self, storage: S3Storage) -> None:
@@ -151,14 +148,14 @@ class S3ImageDatasetRepository():
             local_path,
             image_size=(32, 32),
             color_mode='rgb',
-            batch_size=32,
+            batch_size=page_size,
             seed=123,
             shuffle=True
         )
         images = []
         labels = []
-        for image, label in dataset:
-            images.append(image.numpy())
+        for image, label in dataset: # iterate over each batch of data
+            images.append(image.numpy()) # add one batch to the list
             labels.append(label.numpy())
         return np.array(images), np.array(labels)
 

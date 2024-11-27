@@ -168,3 +168,5 @@ cython_debug/
 /__pycache__
 *.py[cod]
 /competitors*.code-workspace
+
+test_dataset.py

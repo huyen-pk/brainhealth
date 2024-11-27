@@ -1,0 +1,19 @@
+services:
+  test_training_ad_detection_mri:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/test_alzheimer_detection_training
+    # depends_on:
+    #   - db_AD
+    command: 
+      - "python"
+      - "src/scripts/test_alzheimer_detection_static_data_training.py"
+
+    environment:
+      TRAIN_DATA_DIR: "/app/data/test/"
+      MODELS_REPO_DIR_PATH: "/app/models/"
+      CHECKPOINT_REPO_DIR_PATH: "/app/checkpoints/"
+      PYTHONPATH: "/app/src"
+      DATASET_STORAGE_CONNECTION_STRING: '{"bucket_name":"dummy","access_key":"dummy","access_secret":"dummy"}'
+      CHECKPOINT_STORAGE_CONNECTION_STRING: '{"bucket_name":"dummy","access_key":"dummy","access_secret":"dummy"}'
+      MODEL_STORAGE_CONNECTION_STRING: '{"bucket_name":"dummy","access_key":"dummy","access_secret":"dummy"}'

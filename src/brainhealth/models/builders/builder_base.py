@@ -1,5 +1,6 @@
 import os
 import copy
+import numpy as np
 from abc import ABC, abstractmethod
 import tensorflow as tf
 from keras import models
@@ -23,7 +24,7 @@ class ModelBuilderBase(ABC):
     def fetch_data(self, 
                    page_index: int, 
                    training_params: params.TrainingParams,
-                   **kwargs) -> tuple[tf.Tensor, tf.Tensor]:
+                   **kwargs) -> tuple[np.ndarray, np.ndarray]:
         pass
     
     @abstractmethod
@@ -43,44 +44,35 @@ class ModelBuilderBase(ABC):
         pass
 
     def load_base_model(self, 
-                        model_type: enums.ModelType, 
-                        model_file_path: str) -> Model:
+                        model_name: str) -> Model:
         """
         Load a pre-trained model from a file path.
 
         Parameters:
         model_type (enums.ModelType): The type of the model to load.
-        model_path (str): The file path to the pre-trained model.
+        model_file_path (str): The file path to the pre-trained model.
 
         Returns:
         tf.keras.Model: The pre-trained model.
         """
-        if model_file_path is None:
-            raise ValueError('Model file path is required.')
-        
+
         # Attempt to download the model if the file does not exist
-        if not os.path.exists(model_file_path):
-            model_url = model_file_path
-            model_file_path = self.data_domain.get_model(model_url)
-            if not os.path.exists(model_file_path) or os.path.getsize(model_file_path) == 0:
-                raise FileNotFoundError(f'Model not found at {model_file_path}')
-        
-        if model_type == enums.ModelType.Keras:
-            return models.load_model(model_file_path, compile=False)
-        elif model_type == enums.ModelType.PyTorch:
-            raise NotImplementedError('PyTorch model conversion to TensorFlow is not supported yet.')
-        else:
-            raise ValueError(f'Unsupported model type: {model_type}')
+        local_model_repo = self.data_domain.get_model_repository_local(model_name)
+        if not os.path.exists(local_model_repo):
+            os.makedirs(local_model_repo)
+
+        return self.data_domain.get_model(model_name)
+
 
     def save_checkpoint(self) -> None:
         chkpt_local_path = self.data_domain.get_checkpoint_local_path()
-        def log_progress(future):
-            print(f"Checkpoint saved to {self.data_domain.checkpoint_directory}/{key}")
+        def log_progress(future, path: str):
+            print(f"Checkpoint saved to {path}")
         # Set up the thread pool executor
         executor = ThreadPoolExecutor(max_workers=1)
         # Submit the background task to the executor
         future = executor.submit(self.checkpoint.save, chkpt_local_path)
-        future = executor.submit(self.data_domain.save_checkpoint, chkpt_local_path, key)
+        future = executor.submit(self.data_domain.save_checkpoint, chkpt_local_path)
         # Add the callback to be called when the task is done
         future.add_done_callback(log_progress)        
     
@@ -99,8 +91,7 @@ class ModelBuilderBase(ABC):
         Returns:
         tf.train.Checkpoint: checkpoint.
         """
-        checkpoint_dir = self.data_domain.get_latest_checkpoint(model_name=model_name)
-        latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
+        latest_checkpoint = self.data_domain.get_latest_checkpoint(model_name=model_name)
         checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
         if latest_checkpoint:
             checkpoint.restore(latest_checkpoint)
@@ -123,11 +114,6 @@ class ModelBuilderBase(ABC):
         tf.keras.Model: The initialized model.
         tf.train.Checkpoint: The model checkpoint.
         """
-        # Load checkpoints if available
-        checkpoint = self.load_checkpoint(
-            model_name=model_params.model_name,
-            model=model, 
-            optimizer=optimizer)
         # Load weights if available
 
         # Define the optimizer
@@ -140,7 +126,16 @@ class ModelBuilderBase(ABC):
         else:
             raise ValueError(f'Unsupported optimizer: {training_params.optimizer}')
 
-        # Define the loss function
+        # Load checkpoints if available
+        checkpoint = self.load_checkpoint(
+            model_name=model_params.model_name,
+            model=model, 
+            optimizer=optimizer)
+        
+        # Initialize the model's variables and inputs to avoid unknown variable error
+        input_shape = model.input_shape # Get the shape of the input layer, which will be (None, shape)
+        dummy_input = tf.zeros((1, *input_shape[1:]))
+        __ = model(dummy_input)
         # Compile the model
         model.compile(
             optimizer=optimizer,
@@ -160,17 +155,15 @@ class ModelBuilderBase(ABC):
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
         model.save(model_dir)
+        self.data_domain.save_model(model_name=self.model_params.model_name, file_path=model_dir, model=model)
 
     def build(self, 
-              model_file_path: str,
-              model_type: enums.ModelType,
               model_params: params.ModelParams,
               training_params: params.TrainingParams
               ) -> tuple[models.Model, tf.train.Checkpoint]:
         # Load the base model
         base_model = self.load_base_model(
-            model_type=model_type,
-            model_file_path=model_file_path
+            model_name=model_params.base_model_name
         )
         # Define the model
         model = self.define_model(base_model=base_model, model_params=model_params)
@@ -184,10 +177,10 @@ class ModelBuilderBase(ABC):
         return model, checkpoint
     
     def apply_gradients(self,
-                            model: Model, 
-                            optimizer: ops.Optimizer, 
-                            data: tf.Tensor, 
-                            labels: tf.Tensor) -> tuple[ops.Optimizer, tf.Tensor, Model]:
+                        model: Model, 
+                        optimizer: ops.Optimizer, 
+                        input: tf.Tensor, 
+                        labels: tf.Tensor) -> tuple[ops.Optimizer, tf.Tensor]:
         """
         Perform a single training step.
 
@@ -201,8 +194,8 @@ class ModelBuilderBase(ABC):
         None
         """
         with tf.GradientTape() as tape:
-            predictions = model(data, training=True)
-            loss = model.compute_loss(labels, predictions)
+            predictions = model(inputs=input, training=True)
+            loss = model.compute_loss(x=input, y=labels, y_pred=predictions)
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return optimizer, loss
@@ -225,7 +218,7 @@ class ModelBuilderBase(ABC):
         repo = self.data_domain.get_model_repository_local(model_name=model_params.model_name)
         tuned_model = copy.deepcopy(model)
 
-        optimizer = ops.get(model.optimizer)       
+        optimizer = ops.get(tuned_model.optimizer)  
         save_every_n_batches = 50
         # Prepare the data
         steps_per_epoch = training_params.steps_per_epoch  # Set according to the streaming data availability
@@ -243,18 +236,23 @@ class ModelBuilderBase(ABC):
 
             for step in range(steps_per_epoch):
                 # Fetch a batch of data from the stream
-                batchX, labels = self.fetch_data(
+                batches, labels = self.fetch_data(
                     page_index=step, 
                     training_params=training_params, 
                     continuation_token=continuation_token
                 )
+                batchX = batches[0]
+                batchX_labels = labels[0]
                 # Validate the model on the last step of an epoch
                 if step == steps_per_epoch - 1:
-                    results = tuned_model.evaluate(x=batchX, y=labels, steps=1, return_dict=True)
-                    self.data_domain.save_performance_metrics(epoch, model_params.model_name, results, description='Validation')
+                    results = tuned_model.evaluate(x=batchX, y=batchX_labels, steps=1, return_dict=True, verbose=0)
+                    descriptions = {}
+                    for metric, value in results.items():
+                        descriptions[f"{metric}"] = value
+                    self.data_domain.save_performance_metrics(epoch=epoch, model_name=model_params.model_name, metrics=results, descriptions=descriptions)
                 else:
                     # Perform a single training step
-                    optimizer, loss = self.apply_gradients(model=tuned_model, optimizer=optimizer, data=batchX, labels=labels)
+                    optimizer, loss = self.apply_gradients(model=tuned_model, optimizer=optimizer, input=batchX, labels=batchX_labels)
                 if step % save_every_n_batches == 0:
                     # Send command to save checkpoint to storage
                     self.data_domain.save_checkpoint(model_name=model_params.model_name, checkpoint=checkpoint)
@@ -269,6 +267,7 @@ class ModelBuilderBase(ABC):
         # Save the model
         final_model_path = os.path.join(repo, f'{model_params.model_name}.h5')
         tuned_model.save(final_model_path, overwrite=True)
+        self.data_domain.save_model(model_name=model_params.model_name, file_path=final_model_path)
         return (tuned_model, final_model_path)
 
 

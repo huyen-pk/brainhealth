@@ -3,7 +3,7 @@ from keras import layers, models
 from brainhealth.models import params
 from brainhealth.models.builders.builder_base import ModelBuilderBase
 from infrastructure.units_of_work import ModelTrainingDataDomain
-
+import numpy as np
 
 class BrainMriModelBuilder(ModelBuilderBase):
 
@@ -34,10 +34,10 @@ class BrainMriModelBuilder(ModelBuilderBase):
             layers.RandomContrast(0.2),                    # Random contrast adjustment
             layers.RandomBrightness(0.2)                   # Random brightness adjustment
         ])
-        
+        input_shape = (32, 32, 3)
         # Define the model
         model = tf.keras.Sequential([
-            layers.InputLayer(input_shape=(32, 32, 3))
+            layers.InputLayer(input_shape=input_shape)
         ])
         for layer in data_augmentation.layers:
             model.add(layer)
@@ -45,14 +45,14 @@ class BrainMriModelBuilder(ModelBuilderBase):
         if base_model is not None:
             for layer in base_model.layers:
                 model.add(layer)
-
+        
         model.summary()
         return model
     
     def fetch_data(self, 
                    page_index: int, 
                    training_params: params.TrainingParams,
-                   **kwargs) -> tuple[tf.Tensor, tf.Tensor]:
+                   **kwargs) -> tuple[np.ndarray, np.ndarray]:
         images, labels = self.data_domain.get_dataset(
                     page_size=training_params.batch_size,
                     page_index=page_index,

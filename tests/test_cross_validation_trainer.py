@@ -13,7 +13,7 @@ class TestBrainMriModelBuilder():
     def fixup(self):
         model_params = ModelParams(
             model_name='Test_Brain_MRI',
-            base_model_path='../base_models/DBN_model.h5',
+            base_model_name='../base_models/DBN_model.h5',
             base_model_type=ModelType.Keras,
             models_repo_path='data/models',
             model_dir='data/models/Test_Brain_MRI')
