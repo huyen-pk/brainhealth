@@ -4,7 +4,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 import tensorflow as tf
 from keras import models
-from keras import Model as Model, optimizers as ops, losses as ls, metrics as mt
+from keras import Model as Model, optimizers as ops, Optimizer
 from brainhealth.models import enums, params
 from brainhealth.metrics.evaluation_metrics import F1Score
 from infrastructure.units_of_work import ModelTrainingDataDomain
@@ -16,7 +16,6 @@ class ModelBuilderBase(ABC):
         self.data_domain = data_domain
         self.model = None
         self.checkpoint = None
-        self.optimizer = None
         self.model_params = None
         self.training_params = None
 
@@ -100,49 +99,23 @@ class ModelBuilderBase(ABC):
             print("No checkpoint found, initializing from scratch.")
         return checkpoint
     
+    @abstractmethod
     def init_model(self, model: models.Model, 
                    model_params: params.ModelParams,
-                   training_params: params.TrainingParams) -> tuple[models.Model, tf.train.Checkpoint]:
+                   training_params: params.TrainingParams) -> tuple[models.Model, tf.train.Checkpoint, Optimizer]:
         """
         Initialize the model with the training parameters.
 
         Parameters:
         model (tf.keras.Model): The model to initialize.
         model_params (params.ModelParams): The model parameters to use for initialization.
+        training_params (params.TrainingParams): The training parameters to use for initialization.
 
         Returns:
         tf.keras.Model: The initialized model.
         tf.train.Checkpoint: The model checkpoint.
         """
-        # Load weights if available
-
-        # Define the optimizer
-        optimizer=None
-
-        if training_params.optimizer == enums.ModelOptimizers.Adam:
-            optimizer = ops.Adam(learning_rate=training_params.learning_rate)
-        elif training_params.optimizer == enums.ModelOptimizers.SGD:
-            optimizer = ops.SGD(learning_rate=training_params.learning_rate)
-        else:
-            raise ValueError(f'Unsupported optimizer: {training_params.optimizer}')
-
-        # Load checkpoints if available
-        checkpoint = self.load_checkpoint(
-            model_name=model_params.model_name,
-            model=model, 
-            optimizer=optimizer)
-        
-        # Initialize the model's variables and inputs to avoid unknown variable error
-        input_shape = model.input_shape # Get the shape of the input layer, which will be (None, shape)
-        dummy_input = tf.zeros((1, *input_shape[1:]))
-        __ = model(dummy_input)
-        # Compile the model
-        model.compile(
-            optimizer=optimizer,
-            loss=ls.CategoricalCrossentropy(),
-            metrics=[mt.Precision(), mt.Recall(), F1Score()]
-        )
-        return model, checkpoint, optimizer
+        pass
     
     def save_model(self, model: models.Model, model_dir: str) -> str:
         """
@@ -168,13 +141,11 @@ class ModelBuilderBase(ABC):
         # Define the model
         model = self.define_model(base_model=base_model, model_params=model_params)
         # Initialize the model
-        model, checkpoint, optimizer = self.init_model(model=model, model_params=model_params, training_params=training_params)
+        model = self.init_model(model=model, model_params=model_params, training_params=training_params)
         self.model = model
-        self.checkpoint = checkpoint
-        self.optimizer = optimizer
         self.model_params = model_params
         self.training_params = training_params
-        return model, checkpoint
+        return model
     
     def apply_gradients(self,
                         model: Model, 
@@ -219,7 +190,7 @@ class ModelBuilderBase(ABC):
         tuned_model = copy.deepcopy(model)
 
         optimizer = ops.get(tuned_model.optimizer)  
-        save_every_n_batches = 50
+        save_every_n_batches = 5
         # Prepare the data
         steps_per_epoch = training_params.steps_per_epoch  # Set according to the streaming data availability
         continuation_token  = None
@@ -256,7 +227,7 @@ class ModelBuilderBase(ABC):
                 if step % save_every_n_batches == 0:
                     # Send command to save checkpoint to storage
                     self.data_domain.save_checkpoint(model_name=model_params.model_name, checkpoint=checkpoint)
-                    print(f"Checkpoint saved at batch {step} in epoch {epoch + 1}")
+                    print(f"Checkpoint saved at batch {step} in epoch {epoch + 1} in {self.data_domain.get_checkpoint_local_path(model_params.model_name)}")
 
                 # Log progress
                 if step % 10 == 0:
@@ -266,8 +237,11 @@ class ModelBuilderBase(ABC):
 
         # Save the model
         final_model_path = os.path.join(repo, f'{model_params.model_name}.h5')
-        tuned_model.save(final_model_path, overwrite=True)
-        self.data_domain.save_model(model_name=model_params.model_name, file_path=final_model_path)
+        try:
+            tuned_model.save(filepath=final_model_path, overwrite=True)
+            self.data_domain.save_model(model_name=model_params.model_name, file_path=final_model_path)
+        except Exception as e:
+            print(f"Error saving model: {e} at {final_model_path}")
         return (tuned_model, final_model_path)
 
 

@@ -56,8 +56,8 @@ class ModelTrainingDataDomain(ABC):
 
 import numpy as np
 from keras import models, preprocessing as pp
-import shutil
 import tempfile
+import datetime as dt
 class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
     def __init__(self, 
                  model_repository: ModelRepository = None, 
@@ -90,12 +90,7 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
 
     @override
     def save_model(self, file_path: str, model_name: str):
-        if os.path.exists(file_path) == False or os.path.getsize(file_path) == 0:
-            raise FileNotFoundError(f'Model not found at {file_path}')
-        model_repo = self.get_model_repository_local(model_name)
-        model_file_path = os.path.join(model_repo, model_name + '.h5')
-        os.makedirs(model_repo, exist_ok=True)
-        shutil.copy(file_path, model_file_path)
+        pass
 
     @override
     def get_model_repository_local(self, model_name: str) -> str:
@@ -173,6 +168,7 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
     @override
     def save_performance_metrics(self, epoch:int, model_name: str, metrics: dict, descriptions: dict) -> None:
         file_path = os.path.join(self.get_model_repository_local(model_name), "performance.txt")
+        file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")
         with open(file_path, 'a') as file:
             for metric, value in metrics.items():
                 description_value = descriptions.get(metric, "No description available")

@@ -38,7 +38,7 @@ model_params = ModelParams(
             models_repo_path=None)
         
        
-model, checkpoint = builder.build(
+model, checkpoint, optimizer = builder.build(
             model_params=model_params,
             training_params=training_params
         )

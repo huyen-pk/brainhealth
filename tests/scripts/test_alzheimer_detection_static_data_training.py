@@ -1,6 +1,5 @@
 import os
 from brainhealth.models.conf import VariableNames
-import argparse
 from brainhealth.models.builders.brain_mri_builder import BrainMriModelBuilder
 from brainhealth.models.params import ModelParams, TrainingParams
 from brainhealth.models.enums import ModelOptimizers, ModelType
@@ -28,7 +27,7 @@ model_params = ModelParams(
             models_repo_path=None)
         
        
-model, checkpoint = builder.build(
+model, checkpoint, optimizer = builder.build(
             model_params=model_params,
             training_params=training_params
         )

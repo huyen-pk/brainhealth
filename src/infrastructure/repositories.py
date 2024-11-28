@@ -7,6 +7,7 @@ from keras import preprocessing as pp
 from keras import Model, models
 from .storage import S3Storage
 import tempfile
+import datetime as dt
 
 class CheckpointRepository():
     def __init__(self, storage: S3Storage) -> None:
@@ -121,6 +122,7 @@ class ModelRepository():
     def save_performance_metrics(self, epoch: int, model_name: str, metrics: dict, description: dict):
         file_path = os.path.join(self.get_local_path(model_name), "performance.txt")
         with open(file_path, 'a') as file:
+            file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")
             for metric, value in metrics.items():
                 file.write(f"Epoch {epoch}: {metric} = {value} | Description: {description[metric]}\n")
     
