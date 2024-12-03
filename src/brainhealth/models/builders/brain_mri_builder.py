@@ -99,8 +99,10 @@ class BrainMriModelBuilder(ModelBuilderBase):
     def fetch_data(self, 
                    page_index: int, 
                    training_params: params.TrainingParams,
+                   model_params: params.ModelParams,
                    **kwargs) -> tuple[np.ndarray, np.ndarray]:
         images, labels = self.data_domain.get_dataset(
+                    model_name=model_params.model_name,
                     page_size=training_params.batch_size,
                     page_index=page_index,
                     page_count=1,

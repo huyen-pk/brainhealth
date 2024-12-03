@@ -12,10 +12,6 @@ parser.add_argument('--model', type=str, help='Path to foundation model to build
 parser.add_argument('--checkpoint', type=str, help='Model repository')
 args = parser.parse_args()
 
-print("model: ", os.getenv(VariableNames.MODEL_STORAGE_CONNECTION_STRING))
-print("checkpoint:", os.getenv(VariableNames.CHECKPOINT_STORAGE_CONNECTION_STRING))
-print("dataset: ", os.getenv(VariableNames.DATASET_STORAGE_CONNECTION_STRING))
-
 model_storage = args.model if args.model else os.getenv(VariableNames.MODEL_STORAGE_CONNECTION_STRING)
 checkpoint_storage = args.checkpoint if args.checkpoint else os.getenv(VariableNames.CHECKPOINT_STORAGE_CONNECTION_STRING)
 dataset_storage = args.data if args.data else os.getenv(VariableNames.DATASET_STORAGE_CONNECTION_STRING)
@@ -25,11 +21,13 @@ builder = di_container.get(BrainMriModelBuilder)
 
 training_params = TrainingParams(
             dataset_path=None, # None if pulling data from cloud storage
-            batch_size=32,
-            num_epoch=10,
+            batch_size=2,
+            num_epoch=1,
+            steps_per_epoch=3,
             learning_rate=0.001,
             optimizer=ModelOptimizers.Adam,
-            kfold=5
+            kfold=5,
+            save_every_n_batches=1
         )
 model_params = ModelParams(
             model_name='AlzheimerDetectionBrainMRI',

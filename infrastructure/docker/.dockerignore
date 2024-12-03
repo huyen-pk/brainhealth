@@ -1,0 +1,14 @@
+# Exclude node_modules directory
+__pycache__
+*/__pycache__/*
+*/__pycache__
+
+# Exclude specific files
+.env
+secret.txt
+
+# Exclude all `.log` files
+*.log
+
+# Exclude everything in the `temp` directory
+temp/

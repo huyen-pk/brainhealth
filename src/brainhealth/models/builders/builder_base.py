@@ -23,6 +23,7 @@ class ModelBuilderBase(ABC):
     def fetch_data(self, 
                    page_index: int, 
                    training_params: params.TrainingParams,
+                   model_params: params.ModelParams,
                    **kwargs) -> tuple[np.ndarray, np.ndarray]:
         pass
     
@@ -42,38 +43,21 @@ class ModelBuilderBase(ABC):
         """
         pass
 
-    def load_base_model(self, 
-                        model_name: str) -> Model:
+    def load_base_model(self, model_name: str) -> Model:
         """
         Load a pre-trained model from a file path.
 
         Parameters:
-        model_type (enums.ModelType): The type of the model to load.
-        model_file_path (str): The file path to the pre-trained model.
+        model_name (str): The name of the model to load.
 
         Returns:
         tf.keras.Model: The pre-trained model.
         """
-
-        # Attempt to download the model if the file does not exist
-        local_model_repo = self.data_domain.get_model_repository_local(model_name)
-        if not os.path.exists(local_model_repo):
-            os.makedirs(local_model_repo)
-
-        return self.data_domain.get_model(model_name)
+        return self.data_domain.get_model(model_name=model_name, file_type="h5")
 
 
-    def save_checkpoint(self) -> None:
-        chkpt_local_path = self.data_domain.get_checkpoint_local_path()
-        def log_progress(future, path: str):
-            print(f"Checkpoint saved to {path}")
-        # Set up the thread pool executor
-        executor = ThreadPoolExecutor(max_workers=1)
-        # Submit the background task to the executor
-        future = executor.submit(self.checkpoint.save, chkpt_local_path)
-        future = executor.submit(self.data_domain.save_checkpoint, chkpt_local_path)
-        # Add the callback to be called when the task is done
-        future.add_done_callback(log_progress)        
+    def save_checkpoint(self, model_name:str, checkpoint: tf.train.Checkpoint) -> None:
+        self.data_domain.save_checkpoint(model_name=model_name, checkpoint=checkpoint)
     
     def load_checkpoint(self, 
                         model_name: str,
@@ -99,6 +83,26 @@ class ModelBuilderBase(ABC):
             print("No checkpoint found, initializing from scratch.")
         return checkpoint
     
+    def load_weights(self, 
+                     model: Model, 
+                     model_name: str) -> Model:
+        """
+        Load the weights of a model from a file path.
+
+        Parameters:
+        model (tf.keras.Model): The model to load the weights into.
+        model_name (str): The name of the model to load the weights from.
+
+        Returns:
+        tf.keras.Model: The model with the loaded weights.
+        """
+        weights_path = self.data_domain.get_weights(model_name)
+        if weights_path:
+            model.load_weights(weights_path)
+            print(f"Loaded weights from {weights_path}")
+        else:
+            print("No weights found, initializing from scratch.")
+        return model
     @abstractmethod
     def init_model(self, model: models.Model, 
                    model_params: params.ModelParams,
@@ -117,19 +121,6 @@ class ModelBuilderBase(ABC):
         """
         pass
     
-    def save_model(self, model: models.Model, model_dir: str) -> str:
-        """
-        Save the model to a directory.
-
-        Parameters:
-        model (tf.keras.Model): The model to save.
-        model_dir (str): The directory to save the model to.
-        """
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
-        model.save(model_dir)
-        self.data_domain.save_model(model_name=self.model_params.model_name, file_path=model_dir, model=model)
-
     def build(self, 
               model_params: params.ModelParams,
               training_params: params.TrainingParams
@@ -186,11 +177,10 @@ class ModelBuilderBase(ABC):
         if training_params is None:
             raise ValueError('Training parameters are required for training')
 
-        repo = self.data_domain.get_model_repository_local(model_name=model_params.model_name)
         tuned_model = copy.deepcopy(model)
 
         optimizer = ops.get(tuned_model.optimizer)  
-        save_every_n_batches = 5
+        save_every_n_batches = training_params.save_every_n_batches
         # Prepare the data
         steps_per_epoch = training_params.steps_per_epoch  # Set according to the streaming data availability
         continuation_token  = None
@@ -205,11 +195,12 @@ class ModelBuilderBase(ABC):
                 for layer in tuned_model.layers:
                     layer.trainable = True
 
-            for step in range(steps_per_epoch):
+            for step in range(1, steps_per_epoch):
                 # Fetch a batch of data from the stream
                 batches, labels = self.fetch_data(
                     page_index=step, 
                     training_params=training_params, 
+                    model_params=model_params,
                     continuation_token=continuation_token
                 )
                 batchX = batches[0]
@@ -236,12 +227,7 @@ class ModelBuilderBase(ABC):
                 self.data_domain.purge_dataset(model_name=model_params.model_name, batch_index=step)
 
         # Save the model
-        final_model_path = os.path.join(repo, f'{model_params.model_name}.h5')
-        try:
-            tuned_model.save(filepath=final_model_path, overwrite=True)
-            self.data_domain.save_model(model_name=model_params.model_name, file_path=final_model_path)
-        except Exception as e:
-            print(f"Error saving model: {e} at {final_model_path}")
+        final_model_path = self.data_domain.save_model(model=tuned_model, model_name=model_params.model_name, type='keras')
         return (tuned_model, final_model_path)
 
 

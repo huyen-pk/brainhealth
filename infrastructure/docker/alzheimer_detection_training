@@ -2,17 +2,22 @@
 FROM python:3.12
 
 ENV PYTHONPATH="${PYTHONPATH}:/app/src"
+ENV TRAIN_DATA_DIR="Oasis1"
+ENV TRAIN_DATA_LABELS="demented,nondemented"
+ENV MODELS_REPO_DIR_PATH="models"
+ENV CHECKPOINT_REPO_DIR_PATH="checkpoints"
+ENV MODELS_PERF_REPO_DIR_PATH="metrics"
 
 # Set the working directory in the container
 WORKDIR /app
 
 # Copy the entire project into the container
 COPY src/brainhealth /app/src/brainhealth
-COPY src/scripts/*.py /app/src/scripts
-COPY src/infrastructure/*.py /app/src/infrastructure
-COPY base_models /app/models
+COPY src/scripts/ /app/src/scripts
+COPY src/infrastructure/ /app/src/infrastructure
 COPY setup.py /app/setup.py
 COPY requirements.txt /app/requirements.txt
+RUN mkdir -p /app/models
 
 # Move to the directory where setup.py is located
 WORKDIR /app
@@ -20,6 +25,7 @@ WORKDIR /app
 # Install the local package, which includes dependencies from requirements.txt
 RUN pip install -r requirements.txt
 RUN pip install .
+RUN apt-get update && apt-get install nano
 # Move back to the root app directory for running the app
 WORKDIR /app
 

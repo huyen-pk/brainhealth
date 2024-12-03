@@ -1,4 +1,5 @@
 import os
+import datetime as dt
 from abc import ABC, abstractmethod
 from typing import override
 from brainhealth.models.conf import VariableNames
@@ -12,26 +13,46 @@ class ModelTrainingDataDomain(ABC):
                  model_repository: ModelRepository, 
                  checkpoint_repository: CheckpointRepository,
                  dataset_repository: S3ImageDatasetRepository) -> None:
-        self.model_repository = model_repository
-        self.checkpoint_repository = checkpoint_repository
-        self.dataset_repository = dataset_repository
+        self.__model_repository__ = model_repository
+        self.__checkpoint_repository__ = checkpoint_repository
+        self.__dataset_repository__ = dataset_repository
 
-    def get_model(self, model_name: str) -> Model:
-        return self.model_repository.get(model_name)
+    def get_model(self, model_name: str, file_type="h5") -> Model:
+        return self.__model_repository__.get(model_name=model_name, file_type=file_type)
 
     def save_model(self, model_name: str, file_path: str) -> None:
-        self.model_repository.save(model_name=model_name, file_path=file_path)
-
-    def get_model_repository_local(self, model_name: str) -> str:
-        return self.model_repository.get_local_path(model_name)
+        self.__model_repository__.save(model_name=model_name, file_path=file_path)
     
-    def get_dataset(self, page_size, page_index, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
-        return self.dataset_repository.get(page_size, page_index, page_count, **kwargs)
+    def save_model(self, model_name: str, model: Model, type: str = 'h5') -> str:
+        repo = self.get_model_repository_local(model_name)
+        file_path = os.path.join(repo, f"{model_name}_{str(dt.datetime.now().timestamp())}.{type}")
+        model.save(file_path)
+        self.__model_repository__.save(model_name=model_name, file_path=file_path)    
+
+    def save_weights(self, model_name: str, model: Model) -> str:
+        repo = self.get_model_repository_local(model_name)
+        file_path = os.path.join(repo, f"{model_name}_{str(dt.datetime.now().timestamp())}.weights.h5")
+        model.save_weights(file_path)
+        self.__model_repository__.save(model_name=model_name, file_path=file_path)
+        return file_path
+    
+    def get_model_repository_local(self, model_name: str) -> str:
+        return self.__model_repository__.get_local_path(model_name)
+    
+    def get_label_classes(self, model_name: str) -> list[str]:
+        return self.__dataset_repository__.get_labels(model_name)
+    
+    def get_dataset(self, model_name: str, page_size: int, page_index: int, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+        return self.__dataset_repository__.get(model_name=model_name, 
+                                           page_size=page_size, 
+                                           page_index=page_index, 
+                                           page_count=page_count,
+                                           **kwargs)
     
     def purge_dataset(self, model_name: str, batch_index: int) -> None:
-        local_path = self.dataset_repository.get_local_path(model_name, batch_index)
+        local_path = self.__dataset_repository__.get_local_path(model_name, batch_index)
         if os.path.exists(local_path):
-            os.rmdir(local_path)
+            shutil.rmtree(local_path)
 
     def get_latest_checkpoint(self, model_name) -> str:
         """
@@ -43,21 +64,22 @@ class ModelTrainingDataDomain(ABC):
         Returns:
         str: The path on local drive to the latest checkpoint.
         """
-        return self.checkpoint_repository.get_latest(model_name)
+        return self.__checkpoint_repository__.get_latest(model_name)
     
     def get_checkpoint_local_path(self, model_name: str) -> str:
-        return self.checkpoint_repository.get_local_path(model_name)
+        return self.__checkpoint_repository__.get_local_path(model_name)
 
     def save_checkpoint(self, model_name: str, checkpoint: tf.train.Checkpoint) -> None:
-        self.checkpoint_repository.save_upload(model_name=model_name, checkpoint=checkpoint)
+        self.__checkpoint_repository__.save_upload(model_name=model_name, checkpoint=checkpoint)
 
     def save_performance_metrics(self, epoch:int, model_name: str, metrics: dict, descriptions: dict) -> None:
-        self.model_repository.save_performance_metrics(epoch=epoch, model_name=model_name, metrics=metrics, description=descriptions)
+        self.__model_repository__.save_performance_metrics(epoch=epoch, model_name=model_name, metrics=metrics, description=descriptions)
 
 import numpy as np
 from keras import models, preprocessing as pp
 import tempfile
 import datetime as dt
+import shutil
 class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
     def __init__(self, 
                  model_repository: ModelRepository = None, 

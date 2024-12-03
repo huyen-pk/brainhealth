@@ -27,6 +27,7 @@ WORKDIR /app
 # Install the local package, which includes dependencies from requirements.txt
 RUN pip install -r requirements.txt
 RUN pip install .
+RUN apt-get update && apt-get install nano
 # Move back to the root app directory for running the app
 WORKDIR /app
 
