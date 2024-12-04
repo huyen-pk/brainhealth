@@ -1,5 +1,5 @@
 services:
-  training_ad_detection_mri:
+  training_ad_detection_mri_streaming_data:
     build:
       context: ../..
       dockerfile: infrastructure/docker/alzheimer_detection_training
@@ -7,7 +7,7 @@ services:
     #   - db_AD
     command: 
       - "python"
-      - "src/scripts/alzheimer_detection_static_data_training.py"
+      - "src/scripts/alzheimer_detection_streaming_data_training.py"
       - "--data"
       - "${DATASET_STORAGE_CONNECTION_STRING}"
       - "--checkpoint"

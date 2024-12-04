@@ -1,23 +1,32 @@
 import os
 from brainhealth.models.conf import VariableNames
+import argparse
 from brainhealth.models.builders.brain_mri_builder import BrainMriModelBuilder
 from brainhealth.models.params import ModelParams, TrainingParams
 from brainhealth.models.enums import ModelOptimizers, ModelType
 from infrastructure.denpendency_container import DependencyContainer
 
-print("model: ", os.getenv(VariableNames.MODELS_REPO_DIR_PATH))
-print("checkpoint:", os.getenv(VariableNames.CHECKPOINT_REPO_DIR_PATH))
-print("dataset: ", os.getenv(VariableNames.TRAIN_DATA_DIR))
+parser = argparse.ArgumentParser(description='Alzheimer Detection on Brain MRI')
+parser.add_argument('--data', type=str, help='Directory containing MRI images for training')
+parser.add_argument('--model', type=str, help='Path to foundation model to build our model upon')
+parser.add_argument('--checkpoint', type=str, help='Model repository')
+args = parser.parse_args()
 
-di_container = DependencyContainer.configure_injector_local()
+model_storage = args.model if args.model else os.getenv(VariableNames.MODEL_STORAGE_CONNECTION_STRING)
+checkpoint_storage = args.checkpoint if args.checkpoint else os.getenv(VariableNames.CHECKPOINT_STORAGE_CONNECTION_STRING)
+dataset_storage = args.data if args.data else os.getenv(VariableNames.DATASET_STORAGE_CONNECTION_STRING)
+
+di_container = DependencyContainer.configure_injector()
 builder = di_container.get(BrainMriModelBuilder)
 
 training_params = TrainingParams(
-            dataset_path=None,
+            dataset_path=None, # None if pulling data from cloud storage
             batch_size=32,
             num_epoch=10,
+            steps_per_epoch=10,
             learning_rate=0.00005,
             optimizer=ModelOptimizers.Adam,
+            save_every_n_batches=10
         )
 model_params = ModelParams(
             model_name='AlzheimerDetectionBrainMRI',

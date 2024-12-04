@@ -90,21 +90,24 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         self.dataset_repository = dataset_repository
         self.all_files = []
         self.dataset_repo = os.getenv(VariableNames.TRAIN_DATA_DIR)
-        for root, dirs, files in os.walk(self.dataset_repo):
-            for file in files:
-                try:
-                    self.all_files.append(os.path.join(root, file))
-                except Exception as e:
-                    print(f"Error with file {file}: {e}")
-        # Sort files to ensure consistent paging
-        self.all_files.sort()
+        for dir in os.listdir(self.dataset_repo):
+            dir_files = []
+            directory_path = os.path.join(self.dataset_repo, dir)
+            for root, dirs, files in os.walk(directory_path):
+                for file in files:
+                    try:
+                        dir_files.append(os.path.join(root, file))
+                    except Exception as e:
+                        print(f"Error with file {file}: {e}")
+            dir_files.sort()
+            self.all_files.append(dir_files)
         self.start_index = 0
 
 
     @override
-    def get_model(self, model_name: str) -> Model:
+    def get_model(self, model_name: str, file_type: str) -> Model:
         model_repo = self.get_model_repository_local(model_name)
-        model_file_path = os.path.join(model_repo, model_name + '.h5')
+        model_file_path = os.path.join(model_repo, f"{model_name}.{file_type}")
         if not os.path.exists(model_file_path) or os.path.getsize(model_file_path) == 0:
                 raise FileNotFoundError(f'Model not found at {model_file_path}')
         
@@ -115,6 +118,12 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         pass
 
     @override
+    def save_model(self, model_name: str, model: Model, type: str = 'keras') -> str:
+        repo = self.get_model_repository_local(model_name)
+        file_path = os.path.join(repo, f"{model_name}_{str(dt.datetime.now().timestamp())}.{type}")
+        model.save(file_path)
+
+    @override
     def get_model_repository_local(self, model_name: str) -> str:
         local_repository = os.getenv(VariableNames.MODELS_REPO_DIR_PATH)
         model_path = os.path.join(local_repository, model_name)
@@ -123,38 +132,56 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         return model_path
     
     @override
-    def get_dataset(self, page_size, page_index, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+    def get_label_classes(self, model_name: str) -> list[str]:
+        return os.getenv('TRAIN_DATA_LABELS', '').split(',')   
+    
+    @override
+    def get_dataset(self, model_name:str, page_size:int, page_index:int, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         dataset_repo = self.dataset_repo
         if not os.path.exists(dataset_repo) or not os.listdir(dataset_repo):
             raise FileNotFoundError(f'Dataset repository not found or is empty at {dataset_repo}')
         
+        # labels = self.get_label_classes(model_name)
         all_files = self.all_files
         self.start_index = page_index * page_size
         end_index = self.start_index + (page_size * page_count)
-        paged_files = all_files[self.start_index:end_index]
+        paged_files = []
+        for index in range(self.start_index, end_index):
+            for cat in all_files:
+                if index < len(cat):
+                    paged_files.append(cat[index])
+                else:
+                    paged_files.append(cat[index % len(cat)])
 
-        temp_dir = tempfile.mkdtemp()
-        for file_path in paged_files:
-            relative_path = os.path.relpath(file_path, dataset_repo)
-            dest_path = os.path.join(temp_dir, relative_path)
-            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-            os.symlink(file_path, dest_path)
-
-        dataset = pp.image_dataset_from_directory(
-            dataset_repo,
-            image_size=(32, 32),
-            color_mode='rgb',
-            batch_size=page_size,
-            seed=123,
-            shuffle=True
-        )
-
-        images = []
+        images = [] # a batch of images
         labels = []
-        for image, label in dataset:
-            images.append(image.numpy())
-            labels.append(label.numpy())
-        return np.array(images), np.array(labels)
+        for file_path in paged_files:
+            img = pp.image.load_img(
+                path=file_path,
+                color_mode='rgb',
+                target_size=(32, 32)
+            )
+            images.append(pp.image.img_to_array(img))
+            labels.append(os.path.basename(os.path.dirname(file_path)))
+
+        # Convert labels to float values
+        unique_labels = tf.constant(sorted(set(labels)))
+        values = tf.range(len(unique_labels), dtype=tf.float32)
+        table = tf.lookup.StaticHashTable(
+                initializer=tf.lookup.KeyValueTensorInitializer(keys=unique_labels, values=values),
+                default_value=-1.0  # Value for unknown labels
+                )
+        label_set = tf.data.Dataset.from_tensor_slices(labels)
+        mapped_labels = label_set.map(lambda label: table.lookup(label))
+        encoded_labels = []
+        for mapped_label in mapped_labels:
+            encoded_labels.append(mapped_label.numpy())
+
+        batches = []
+        batches_labels = []
+        batches.append(images)
+        batches_labels.append(encoded_labels)
+        return np.array(batches), np.array(batches_labels)
     
     @override
     def purge_dataset(self, model_name: str, batch_index: int) -> None:
@@ -189,9 +216,8 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
 
     @override
     def save_performance_metrics(self, epoch:int, model_name: str, metrics: dict, descriptions: dict) -> None:
-        file_path = os.path.join(self.get_model_repository_local(model_name), "performance.txt")
-        file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")
+        file_path = os.path.join(self.get_model_repository_local(model_name), f"performance{dt.datetime.now().date()}.txt")
         with open(file_path, 'a') as file:
+            file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")
             for metric, value in metrics.items():
-                description_value = descriptions.get(metric, "No description available")
-                file.write(f"Epoch {epoch}: {metric} = {value} | Description: {description_value}\n")
+                file.write(f"Epoch {epoch}: {metric} = {value} | Description: {descriptions[metric]}\n")

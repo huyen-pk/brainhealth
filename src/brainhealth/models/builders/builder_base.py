@@ -5,8 +5,7 @@ from abc import ABC, abstractmethod
 import tensorflow as tf
 from keras import models
 from keras import Model as Model, optimizers as ops, Optimizer
-from brainhealth.models import enums, params
-from brainhealth.metrics.evaluation_metrics import F1Score
+from brainhealth.models import params
 from infrastructure.units_of_work import ModelTrainingDataDomain
 from concurrent.futures import ThreadPoolExecutor
 
@@ -182,20 +181,21 @@ class ModelBuilderBase(ABC):
         optimizer = ops.get(tuned_model.optimizer)  
         save_every_n_batches = training_params.save_every_n_batches
         # Prepare the data
-        steps_per_epoch = training_params.steps_per_epoch  # Set according to the streaming data availability
+        steps_per_epoch = training_params.steps_per_epoch # Set according to the streaming data availability
         continuation_token  = None
-        for epoch in range(training_params.num_epoch):
-            print(f"Epoch {epoch + 1}/{training_params.num_epoch}")
-            if(epoch == 0):
-                # Freeze all layers except the last one in pre-trained model
-                for layer in tuned_model.layers[:-1]:
-                    layer.trainable = False
+        for epoch in range(1, training_params.num_epoch + 1):
+            print(f"Epoch {epoch}/{training_params.num_epoch}")
+            if(epoch == 1):
+                # Freeze all layers except fully connected layers to train for the first epoch
+                for layer in tuned_model.layers:
+                    if 'dense' not in layer.name:
+                        layer.trainable = False
             else:
                 # Unfreeze all layers and train the model until convergence
                 for layer in tuned_model.layers:
                     layer.trainable = True
 
-            for step in range(1, steps_per_epoch):
+            for step in range(1, steps_per_epoch  + 1):
                 # Fetch a batch of data from the stream
                 batches, labels = self.fetch_data(
                     page_index=step, 
@@ -206,11 +206,12 @@ class ModelBuilderBase(ABC):
                 batchX = batches[0]
                 batchX_labels = labels[0]
                 # Validate the model on the last step of an epoch
-                if step == steps_per_epoch - 1:
+                if step % steps_per_epoch == 0:
                     results = tuned_model.evaluate(x=batchX, y=batchX_labels, steps=1, return_dict=True, verbose=0)
                     descriptions = {}
                     for metric, value in results.items():
                         descriptions[f"{metric}"] = value
+                        print(f"{metric}: {value}")
                     self.data_domain.save_performance_metrics(epoch=epoch, model_name=model_params.model_name, metrics=results, descriptions=descriptions)
                 else:
                     # Perform a single training step
@@ -219,10 +220,6 @@ class ModelBuilderBase(ABC):
                     # Send command to save checkpoint to storage
                     self.data_domain.save_checkpoint(model_name=model_params.model_name, checkpoint=checkpoint)
                     print(f"Checkpoint saved at batch {step} in epoch {epoch + 1} in {self.data_domain.get_checkpoint_local_path(model_params.model_name)}")
-
-                # Log progress
-                if step % 10 == 0:
-                    print(f"Step {step + 1}/{steps_per_epoch}, Loss: {loss.numpy():.4f}")
                 
                 self.data_domain.purge_dataset(model_name=model_params.model_name, batch_index=step)
 

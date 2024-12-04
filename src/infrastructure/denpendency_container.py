@@ -56,7 +56,7 @@ class AppModule_Local(Module):
         return S3ImageDatasetRepository(LocalStorage=S3Storage(os.getenv(VariableNames.TRAIN_DATA_DIR)))
 
     @provider
-    @threadlocal
+    @singleton
     def provide_ModelTrainingDataDomain(self,
                                         model_repository: ModelRepository,
                                         checkpoint_repository: CheckpointRepository,
