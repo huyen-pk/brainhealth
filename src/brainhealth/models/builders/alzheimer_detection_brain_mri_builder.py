@@ -1,5 +1,5 @@
 import tensorflow as tf
-from keras import layers, models, optimizers, Optimizer, metrics, losses
+from keras import layers, models, optimizers, Optimizer, metrics, losses, Model
 from keras import initializers
 from brainhealth.models import enums, params
 from brainhealth.models.builders.builder_base import ModelBuilderBase
@@ -8,11 +8,24 @@ from infrastructure.units_of_work import ModelTrainingDataDomain
 import numpy as np
 from typing import override
 
-class BrainMriModelBuilder(ModelBuilderBase):
+class AlzheimerDetectionBrainMriModelBuilder(ModelBuilderBase):
 
     def __init__(self, data_domain: ModelTrainingDataDomain) -> None:
         self.data_domain = data_domain
 
+    @override
+    def load_base_model(self, model_name: str) -> Model:
+        """
+        Load a pre-trained model from a file path.
+
+        Parameters:
+        model_name (str): The name of the model to load.
+
+        Returns:
+        tf.keras.Model: The pre-trained model.
+        """
+        return self.data_domain.get_model(model_name=model_name, file_type="keras")
+    
     def define_model(self, 
                      base_model: models.Model,
                      model_params: params.ModelParams) -> tf.keras.Model:
@@ -27,42 +40,7 @@ class BrainMriModelBuilder(ModelBuilderBase):
         tf.keras.Model: The compiled model.
         """
 
-        # TODO Define image processing layers
-
-        input_shape = (32, 32, 3)
-        # Define the model
-        model = tf.keras.Sequential([
-            layers.InputLayer(input_shape=input_shape)
-        ])
-
-        # Define the augmentation layers
-        data_augmentation = tf.keras.Sequential([
-            layers.RandomFlip("horizontal_and_vertical"),  # Randomly flip horizontally and vertically
-            layers.RandomRotation(0.2),                    # Randomly rotate by 20%
-            layers.RandomZoom(0.2),                        # Random zoom by 20%
-            layers.RandomContrast(0.2),                    # Random contrast adjustment
-            layers.RandomBrightness(0.2)                   # Random brightness adjustment
-        ])
-
-        dense = layers.Dense(1024, 
-                activation='relu', 
-                kernel_initializer=initializers.RandomNormal(mean=0.0, stddev=0.05))
-        
-        dropout = layers.Dropout(rate=0.85)
-
-        dense_last = layers.Dense(1, activation='sigmoid')
-
-        for layer in data_augmentation.layers:
-            model.add(layer)
-
-        if base_model is not None:
-            for layer in base_model.layers[:-2]:
-                model.add(layer)
-        model.add(dense)
-        model.add(dropout)
-        model.add(dense_last)
-        model.summary()
-        return model
+        return base_model
     
     @override
     def init_model(self, model: models.Model, 

@@ -162,15 +162,16 @@ class ModelRepository():
         os.makedirs(local_repository, exist_ok=True)
         return local_repository
     
-    def save_performance_metrics(self, epoch: int, model_name: str, metrics: dict, description: dict):
-        file_path = os.path.join(self.get_local_path(model_name), "performance.txt")
+    def save_performance_metrics(self, epoch: int, model_name: str, metrics: dict, description: dict, identifier: str):
+        file_path = os.path.join(self.get_local_path(model_name), f"performance_{dt.datetime.now().date()}_{identifier}.txt")
         with open(file_path, 'a') as file:
-            file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")
+            file.write(f"Epoch {epoch} | ")
             for metric, value in metrics.items():
-                file.write(f"Epoch {epoch}: {metric} = {value} | Description: {description[metric]}\n")
+                file.write(f"{metric} = {np.float32(value):.6f} | ")
+            file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")
         # TODO: take into account distributed training (file saved from multiple workers and in different timezones)
         # TODO: classify the file into periods (e.g. daily, weekly, monthly)
-        s3prefix = f'{os.getenv('MODELS_PERF_REPO_DIR_PATH')}/{model_name}/performance.txt'
+        s3prefix = f'{os.getenv('MODELS_PERF_REPO_DIR_PATH')}/{model_name}/{os.path.basename(file_path)}'
         self.storage.save(file_path=file_path, prefix=s3prefix)
     
 class S3ImageDatasetRepository():

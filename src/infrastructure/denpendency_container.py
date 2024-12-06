@@ -2,6 +2,7 @@ import os
 from injector import Injector, Module, threadlocal, singleton, provider
 from infrastructure.storage import S3Storage, LocalStorage, BlobStorage
 from brainhealth.models.builders.brain_mri_builder import BrainMriModelBuilder
+from brainhealth.models.builders.alzheimer_detection_brain_mri_builder import AlzheimerDetectionBrainMriModelBuilder
 from brainhealth.models.conf import VariableNames
 from infrastructure.units_of_work import ModelTrainingDataDomain, Local_ModelTrainingDataDomain
 from infrastructure.repositories import ModelRepository, S3ImageDatasetRepository, CheckpointRepository
@@ -70,6 +71,11 @@ class AppModule_Local(Module):
     @threadlocal
     def provide_builder(self, dataStorage: Local_ModelTrainingDataDomain) -> BrainMriModelBuilder:
         return BrainMriModelBuilder(dataStorage)
+    
+    @provider
+    @threadlocal
+    def provide_builder(self, dataStorage: Local_ModelTrainingDataDomain) -> AlzheimerDetectionBrainMriModelBuilder:
+        return AlzheimerDetectionBrainMriModelBuilder(dataStorage)
     
 class DependencyContainer:
     def configure_injector() -> Injector:

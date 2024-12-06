@@ -72,8 +72,8 @@ class ModelTrainingDataDomain(ABC):
     def save_checkpoint(self, model_name: str, checkpoint: tf.train.Checkpoint) -> None:
         self.__checkpoint_repository__.save_upload(model_name=model_name, checkpoint=checkpoint)
 
-    def save_performance_metrics(self, epoch:int, model_name: str, metrics: dict, descriptions: dict) -> None:
-        self.__model_repository__.save_performance_metrics(epoch=epoch, model_name=model_name, metrics=metrics, description=descriptions)
+    def save_performance_metrics(self, epoch:int, model_name: str, metrics: dict, descriptions: dict, identifier: str) -> None:
+        self.__model_repository__.save_performance_metrics(epoch=epoch, model_name=model_name, metrics=metrics, description=descriptions, identifier=identifier)
 
 import numpy as np
 from keras import models, preprocessing as pp
@@ -90,17 +90,23 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         self.dataset_repository = dataset_repository
         self.all_files = []
         self.dataset_repo = os.getenv(VariableNames.TRAIN_DATA_DIR)
+        count = 0
         for dir in os.listdir(self.dataset_repo):
             dir_files = []
             directory_path = os.path.join(self.dataset_repo, dir)
-            for root, dirs, files in os.walk(directory_path):
+            cat_count = 0
+            for root, __, files in os.walk(directory_path):
                 for file in files:
+                    cat_count+=1
                     try:
                         dir_files.append(os.path.join(root, file))
                     except Exception as e:
                         print(f"Error with file {file}: {e}")
             dir_files.sort()
+            count+= cat_count
+            print(f"Found {cat_count} files in {dir}")
             self.all_files.append(dir_files)
+        print(f"Found {count} files belonging to {len(self.all_files)} categories in {self.dataset_repo}")
         self.start_index = 0
 
 
@@ -140,10 +146,9 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         dataset_repo = self.dataset_repo
         if not os.path.exists(dataset_repo) or not os.listdir(dataset_repo):
             raise FileNotFoundError(f'Dataset repository not found or is empty at {dataset_repo}')
-        
+        print(f"Fetching page {self.start_index} dataset from: {dataset_repo}")
         # labels = self.get_label_classes(model_name)
         all_files = self.all_files
-        self.start_index = page_index * page_size
         end_index = self.start_index + (page_size * page_count)
         paged_files = []
         for index in range(self.start_index, end_index):
@@ -181,6 +186,7 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         batches_labels = []
         batches.append(images)
         batches_labels.append(encoded_labels)
+        self.start_index = end_index + 1
         return np.array(batches), np.array(batches_labels)
     
     @override
@@ -215,9 +221,10 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         return checkpoint.save(file_prefix=f"{directory}/{file_prefix}")
 
     @override
-    def save_performance_metrics(self, epoch:int, model_name: str, metrics: dict, descriptions: dict) -> None:
-        file_path = os.path.join(self.get_model_repository_local(model_name), f"performance{dt.datetime.now().date()}.txt")
+    def save_performance_metrics(self, epoch:int, model_name: str, metrics: dict, descriptions: dict, identifier: str) -> None:
+        file_path = os.path.join(self.get_model_repository_local(model_name), f"performance{dt.datetime.now().date()}_{identifier}.txt")
         with open(file_path, 'a') as file:
-            file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")
+            file.write(f"Epoch {epoch} | ")
             for metric, value in metrics.items():
-                file.write(f"Epoch {epoch}: {metric} = {value} | Description: {descriptions[metric]}\n")
+                file.write(f"{metric} = {np.float32(value):.6f} | ")
+            file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")

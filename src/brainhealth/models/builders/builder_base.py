@@ -8,6 +8,7 @@ from keras import Model as Model, optimizers as ops, Optimizer
 from brainhealth.models import params
 from infrastructure.units_of_work import ModelTrainingDataDomain
 from concurrent.futures import ThreadPoolExecutor
+import uuid
 
 class ModelBuilderBase(ABC):
 
@@ -141,7 +142,7 @@ class ModelBuilderBase(ABC):
                         model: Model, 
                         optimizer: ops.Optimizer, 
                         input: tf.Tensor, 
-                        labels: tf.Tensor) -> tuple[ops.Optimizer, tf.Tensor]:
+                        labels: tf.Tensor) -> tuple[ops.Optimizer, tf.Tensor, dict]:
         """
         Perform a single training step.
 
@@ -152,14 +153,17 @@ class ModelBuilderBase(ABC):
         labels (tf.Tensor): The target labels.
 
         Returns:
-        None
+        Optimizer: The updated optimizer.
+        tf.Tensor: The loss value.
+        dict: The computed metrics.
         """
         with tf.GradientTape() as tape:
             predictions = model(inputs=input, training=True)
             loss = model.compute_loss(x=input, y=labels, y_pred=predictions)
+            metrics = model.compute_metrics(x=input, y=labels, y_pred=predictions)
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        return optimizer, loss
+        return optimizer, loss, metrics
 
     def train(self, 
               model: Model, 
@@ -183,6 +187,7 @@ class ModelBuilderBase(ABC):
         # Prepare the data
         steps_per_epoch = training_params.steps_per_epoch # Set according to the streaming data availability
         continuation_token  = None
+        cycle_identifier = str(uuid.uuid4())
         for epoch in range(1, training_params.num_epoch + 1):
             print(f"Epoch {epoch}/{training_params.num_epoch}")
             if(epoch == 1):
@@ -212,14 +217,17 @@ class ModelBuilderBase(ABC):
                     for metric, value in results.items():
                         descriptions[f"{metric}"] = value
                         print(f"{metric}: {value}")
-                    self.data_domain.save_performance_metrics(epoch=epoch, model_name=model_params.model_name, metrics=results, descriptions=descriptions)
+                    self.data_domain.save_performance_metrics(
+                        epoch=epoch, model_name=model_params.model_name, metrics=results, descriptions=descriptions, identifier=f"{cycle_identifier}_validation")
                 else:
                     # Perform a single training step
-                    optimizer, loss = self.apply_gradients(model=tuned_model, optimizer=optimizer, input=batchX, labels=batchX_labels)
+                    optimizer, loss, metrics = self.apply_gradients(model=tuned_model, optimizer=optimizer, input=batchX, labels=batchX_labels)
+                    self.data_domain.save_performance_metrics(epoch=epoch, model_name=model_params.model_name, metrics=metrics, descriptions={"step": step}, identifier=f"{cycle_identifier}_training")
+
                 if step % save_every_n_batches == 0:
                     # Send command to save checkpoint to storage
                     self.data_domain.save_checkpoint(model_name=model_params.model_name, checkpoint=checkpoint)
-                    print(f"Checkpoint saved at batch {step} in epoch {epoch + 1} in {self.data_domain.get_checkpoint_local_path(model_params.model_name)}")
+                    print(f"Checkpoint saved at batch {step} in epoch {epoch} in {self.data_domain.get_checkpoint_local_path(model_params.model_name)}")
                 
                 self.data_domain.purge_dataset(model_name=model_params.model_name, batch_index=step)
 
@@ -228,3 +236,18 @@ class ModelBuilderBase(ABC):
         return (tuned_model, final_model_path)
 
 
+    # def evaluate(model: Model) -> dict:
+    #     """
+    #     Evaluate a model on a dataset.
+
+    #     Parameters:
+    #     model (tf.keras.Model): The model to evaluate.
+    #     data (np.ndarray): The input data.
+    #     labels (np.ndarray): The target labels.
+
+    #     Returns:
+    #     dict: The computed metrics.
+    #     """
+
+    #     results = model.evaluate(x=data, y=labels, return_dict=True)
+    #     return results

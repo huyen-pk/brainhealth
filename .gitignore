@@ -165,6 +165,7 @@ cython_debug/
 /data
 /draft
 /base_models
+/trained_models
 /competitors
 *.code-workspace
 /__pycache__
