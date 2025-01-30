@@ -54,7 +54,7 @@ class AppModule_Local(Module):
     @provider
     @singleton
     def provide_dataset_repository(self) -> S3ImageDatasetRepository:
-        return S3ImageDatasetRepository(LocalStorage=S3Storage(os.getenv(VariableNames.TRAIN_DATA_DIR)))
+        return S3ImageDatasetRepository(storage=LocalStorage(os.getenv(VariableNames.TRAIN_DATA_DIR)))
 
     @provider
     @singleton
@@ -69,12 +69,12 @@ class AppModule_Local(Module):
 
     @provider
     @threadlocal
-    def provide_builder(self, dataStorage: Local_ModelTrainingDataDomain) -> BrainMriModelBuilder:
+    def provide_BrainMriModelBuilder(self, dataStorage: Local_ModelTrainingDataDomain) -> BrainMriModelBuilder:
         return BrainMriModelBuilder(dataStorage)
     
     @provider
     @threadlocal
-    def provide_builder(self, dataStorage: Local_ModelTrainingDataDomain) -> AlzheimerDetectionBrainMriModelBuilder:
+    def provide_AlzheimerDetectionBrainMriModelBuilder(self, dataStorage: Local_ModelTrainingDataDomain) -> AlzheimerDetectionBrainMriModelBuilder:
         return AlzheimerDetectionBrainMriModelBuilder(dataStorage)
     
 class DependencyContainer:

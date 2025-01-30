@@ -30,7 +30,7 @@ class ModelBuilderBase(ABC):
     @abstractmethod
     def define_model(self, 
                      base_model: models.Model,
-                     model_params: params.ModelParams) -> tf.keras.Model:
+                     model_params: params.ModelParams) -> Model:
         """
         Define a model for training.
 
@@ -103,6 +103,7 @@ class ModelBuilderBase(ABC):
         else:
             print("No weights found, initializing from scratch.")
         return model
+    
     @abstractmethod
     def init_model(self, model: models.Model, 
                    model_params: params.ModelParams,
@@ -210,10 +211,11 @@ class ModelBuilderBase(ABC):
                 )
                 batchX = batches[0]
                 batchX_labels = labels[0]
+                learning_rate = optimizer._get_current_learning_rate() 
+                descriptions={"step": step, "learning_rate": learning_rate}
                 # Validate the model on the last step of an epoch
                 if step % steps_per_epoch == 0:
                     results = tuned_model.evaluate(x=batchX, y=batchX_labels, steps=1, return_dict=True, verbose=0)
-                    descriptions = {}
                     for metric, value in results.items():
                         descriptions[f"{metric}"] = value
                         print(f"{metric}: {value}")
@@ -222,7 +224,9 @@ class ModelBuilderBase(ABC):
                 else:
                     # Perform a single training step
                     optimizer, loss, metrics = self.apply_gradients(model=tuned_model, optimizer=optimizer, input=batchX, labels=batchX_labels)
-                    self.data_domain.save_performance_metrics(epoch=epoch, model_name=model_params.model_name, metrics=metrics, descriptions={"step": step}, identifier=f"{cycle_identifier}_training")
+                
+                self.data_domain.save_performance_metrics(
+                    epoch=epoch, model_name=model_params.model_name, metrics=metrics, descriptions=descriptions, identifier=f"{cycle_identifier}_training")
 
                 if step % save_every_n_batches == 0:
                     # Send command to save checkpoint to storage

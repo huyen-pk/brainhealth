@@ -5,13 +5,13 @@ import numpy as np
 import tensorflow as tf
 from keras import preprocessing as pp
 from keras import Model, models
-from .storage import S3Storage
+from .storage import BlobStorage
 import tempfile
 import datetime as dt
 import shutil
 
 class CheckpointRepository():
-    def __init__(self, storage: S3Storage) -> None:
+    def __init__(self, storage: BlobStorage) -> None:
         self.storage = storage
 
     def get_latest(self, 
@@ -103,7 +103,7 @@ class CheckpointRepository():
         return path
 
 class ModelRepository():
-    def __init__(self, storage: S3Storage) -> None:
+    def __init__(self, storage: BlobStorage) -> None:
         self.storage = storage
         
     def get(self, model_name: str, file_type: str) -> Model:
@@ -175,7 +175,7 @@ class ModelRepository():
         self.storage.save(file_path=file_path, prefix=s3prefix)
     
 class S3ImageDatasetRepository():
-    def __init__(self, storage: S3Storage) -> None:
+    def __init__(self, storage: BlobStorage) -> None:
         self.storage = storage
     
     def get(self, 

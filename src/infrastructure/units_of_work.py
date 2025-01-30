@@ -17,7 +17,7 @@ class ModelTrainingDataDomain(ABC):
         self.__checkpoint_repository__ = checkpoint_repository
         self.__dataset_repository__ = dataset_repository
 
-    def get_model(self, model_name: str, file_type="h5") -> Model:
+    def get_model(self, model_name: str, file_type: str ="h5") -> Model:
         return self.__model_repository__.get(model_name=model_name, file_type=file_type)
 
     def save_model(self, model_name: str, file_path: str) -> None:
@@ -54,7 +54,7 @@ class ModelTrainingDataDomain(ABC):
         if os.path.exists(local_path):
             shutil.rmtree(local_path)
 
-    def get_latest_checkpoint(self, model_name) -> str:
+    def get_latest_checkpoint(self, model_name: str) -> str:
         """
         Get the latest checkpoint for a model.
 
@@ -120,7 +120,7 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         return models.load_model(model_file_path, compile=False)
 
     @override
-    def save_model(self, file_path: str, model_name: str):
+    def save_model(self, model_name: str, file_path: str):
         pass
 
     @override
@@ -194,7 +194,7 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         pass
 
     @override
-    def get_latest_checkpoint(self, model_name) -> str:
+    def get_latest_checkpoint(self, model_name: str) -> str:
         """
         Get the latest checkpoint for a model.
 
@@ -227,4 +227,6 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
             file.write(f"Epoch {epoch} | ")
             for metric, value in metrics.items():
                 file.write(f"{metric} = {np.float32(value):.6f} | ")
+            for name, desc in descriptions.items():
+                file.write(f"{name} = {desc} | ")
             file.write(f"Date: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Timestamp: {dt.datetime.now().timestamp()}\n")

@@ -15,11 +15,11 @@ builder = di_container.get(BrainMriModelBuilder)
 training_params = TrainingParams(
             dataset_path=None,
             batch_size=32,
-            num_epoch=20,
-            steps_per_epoch=200,
+            num_epoch=40,
+            steps_per_epoch=160,
             learning_rate=0.00005,
             optimizer=ModelOptimizers.Adam,
-            save_every_n_batches=200
+            save_every_n_batches=160
         )
 model_params = ModelParams(
             model_name='AlzheimerDetectionBrainMRI',

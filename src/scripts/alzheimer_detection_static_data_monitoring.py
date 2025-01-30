@@ -15,15 +15,16 @@ builder = di_container.get(AlzheimerDetectionBrainMriModelBuilder)
 training_params = TrainingParams(
             dataset_path=None,
             batch_size=32,
-            num_epoch=10,
-            steps_per_epoch=100,
-            learning_rate=0.00005,
+            num_epoch=40,
+            steps_per_epoch=160,
+            learning_rate=0.0005,
             optimizer=ModelOptimizers.Adam,
-            save_every_n_batches=100
+            save_every_n_batches=160
         )
 model_params = ModelParams(
             model_name='AlzheimerDetectionBrainMRI',
-            base_model_name='AlzheimerDetectionBrainMRI',
+            # base_model_name='AlzheimerDetectionBrainMRI_a2fd06bb-4078-43a0-a787-6df7ed828907',
+            base_model_name='DeepBrainNet',
             base_model_type=ModelType.Keras,
             models_repo_path=None)
         

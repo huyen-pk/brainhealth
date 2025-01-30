@@ -17,6 +17,7 @@ class BlobStorage(ABC):
 
     @abstractmethod
     def paging(self, 
+               save_to: str,
                 page_size:int, 
                 page_index:int, # starting page index to download
                 page_count: int = 1,
@@ -148,6 +149,9 @@ class LocalStorage(BlobStorage):
         self.all_files.sort()
         self.start_index = 0
 
+    def get(self, key: str, local_file_path: str) -> str:
+        pass
+
     def get_dataset(self, page_size, page_index, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         
         all_files = self.all_files
@@ -176,3 +180,15 @@ class LocalStorage(BlobStorage):
             images.append(image.numpy())
             labels.append(label.numpy())
         return np.array(images), np.array(labels)
+    
+    def paging(self, 
+               save_to: str,
+                page_size:int, 
+                page_index:int, # starting page index to download
+                page_count: int = 1,
+                filter: str = None,
+                **kwargs) -> tuple[np.ndarray, np.ndarray]:
+        pass
+    
+    def save(self, file_path: str, prefix: str):
+        pass

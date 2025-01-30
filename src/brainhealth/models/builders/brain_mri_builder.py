@@ -1,5 +1,5 @@
 import tensorflow as tf
-from keras import layers, models, optimizers, Optimizer, metrics, losses
+from keras import layers, models, optimizers, Optimizer, metrics, losses, Model
 from keras import initializers
 from brainhealth.models import enums, params
 from brainhealth.models.builders.builder_base import ModelBuilderBase
@@ -12,10 +12,11 @@ class BrainMriModelBuilder(ModelBuilderBase):
 
     def __init__(self, data_domain: ModelTrainingDataDomain) -> None:
         self.data_domain = data_domain
-
+    
+    @override
     def define_model(self, 
                      base_model: models.Model,
-                     model_params: params.ModelParams) -> tf.keras.Model:
+                     model_params: params.ModelParams) -> Model:
         """
         Define the model architecture based on the foundation model and the training parameters.
 
@@ -58,6 +59,8 @@ class BrainMriModelBuilder(ModelBuilderBase):
         if base_model is not None:
             for layer in base_model.layers[:-2]:
                 model.add(layer)
+
+        model.add(layers.BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001),)
         model.add(dense)
         model.add(dropout)
         model.add(dense_last)
@@ -82,7 +85,7 @@ class BrainMriModelBuilder(ModelBuilderBase):
         lr_schedule = optimizers.schedules.ExponentialDecay(
             initial_learning_rate=training_params.learning_rate,
             decay_steps=training_params.steps_per_epoch,
-            decay_rate=0.95,
+            decay_rate=0.85,
             staircase=True  # If True, learning rate decays in discrete steps
         )
 
@@ -113,7 +116,8 @@ class BrainMriModelBuilder(ModelBuilderBase):
             metrics=[metrics.Precision(), metrics.Recall(), F1Score()]
         )
         return model, checkpoint, optimizer
-
+    
+    @override
     def fetch_data(self, 
                    page_index: int, 
                    training_params: params.TrainingParams,
