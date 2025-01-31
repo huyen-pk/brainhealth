@@ -1,0 +1,113 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <title>{{ app_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    {# <link rel="stylesheet" href="{% static 'css/style.css' %}"> #}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">{{ app_name }}</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="#">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">About</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Contact</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-center flex-column" style="height: 40vh;">
+            <div class="text-center mb-4">
+            <h1 class="mb-3">Welcome to the {{ app_name }} App</h1>
+            <p class="mb-3" style="font-size: 1.25rem; font-weight: bold; color: gray;">Analyze brain scans to detect neuro diseases.</p>
+            </div>
+            <form id="basicScanForm" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row mb-2">
+                <div class="col-md-4">
+                <label for="patient_name" class="form-label">Patient name:</label>
+                <input type="text" class="form-control" name="patient_name" required>
+                </div>
+                <div class="col-md-4">
+                <label for="patient_id" class="form-label">Patient identifier:</label>
+                <input type="text" class="form-control" name="patient_id" required>
+                </div>
+                <div class="col-md-4">
+                <label for="image" class="form-label">Upload brain scan:</label>
+                <input type="file" class="form-control" name="image" id="image" accept="image/*" required>
+                </div>
+            </div>
+            <div class="d-flex justify-content-center">
+                <button type="submit" class="btn btn-primary">Analyze</button>
+            </div>
+            </form>
+        </div>
+        <div class="row mt-5 justify-content-center">
+            <div class="col-md-6 text-center">
+            <h5>Uploaded Image Preview</h5>
+            <img id="imagePreview" src="#" alt="Image Preview" class="img-fluid mx-auto d-block" style="display: none; max-height: 300px;">
+            </div>
+            <div class="col-md-6 text-center">
+            <h5>Analysis Result</h5>
+            <div id="analysisResult" style="min-height: 300px;">
+                <!-- Analysis result will be displayed here -->
+                sdfq
+            </div>
+            </div>
+        </div>
+    
+    </div>
+
+    </div>
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('image').addEventListener('change', function(event) {
+        const reader = new FileReader();
+        reader.onload = function() {
+            const img = document.getElementById('imagePreview');
+            img.src = reader.result;
+            img.style.display = 'block';
+        }
+        reader.readAsDataURL(event.target.files[0]);
+        });
+    </script>
+    <script>
+                document.getElementById('basicScanForm').addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    const formData = new FormData(this);
+                    fetch(this.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('analysisResult').innerText = data.message;
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                });
+    </script>
+</body>
+</html>
