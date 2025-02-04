@@ -1,0 +1,11 @@
+services:
+  tf-serving:
+    image: tensorflow/serving
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./base_models/AlzheimerDetectionBrainMRI:/models
+    environment:
+      - MODEL_NAME=AlzheimerDetectionBrainMRI
+    command: >
+      --model_config_file=/models/models.config

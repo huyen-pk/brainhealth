@@ -167,6 +167,7 @@ cython_debug/
 /base_models
 /trained_models
 /competitors
+/src/brainhealth_web/media
 *.code-workspace
 /__pycache__
 *.py[cod]

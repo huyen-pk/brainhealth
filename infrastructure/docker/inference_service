@@ -1,0 +1,17 @@
+# Use the official TensorFlow Serving image
+FROM tensorflow/serving:latest
+
+# Create a directory for the model
+RUN mkdir -p /models
+
+# Copy the model to the container
+COPY ../../base_models/AlzheimerDetectionBrainMRI/. /models
+
+# Set the environment variable to specify the model name
+ENV MODEL_NAME=AlzheimerDetectionBrainMRI
+
+# Expose the TensorFlow Serving port
+EXPOSE 8501
+
+# Start TensorFlow Serving
+ENTRYPOINT ["tensorflow_model_server", "--rest_api_port=8501", "--model_name=AlzheimerDetectionBrainMRI", "--model_base_path=/models"]

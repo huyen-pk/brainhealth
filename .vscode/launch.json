@@ -10,13 +10,21 @@
             ],
             "django": true,
             "autoStartBrowser": true,
-            "program": "${workspaceFolder}/src/brainhealth_web/manage.py"
+            "program": "${workspaceFolder}/src/brainhealth_web/manage.py",
+            "env": {
+                "TENSORFLOW_SERVING_HOST": "localhost:8501",
+                "SCHEMA": "http"
+            }
         },
         {
             "name": "Python Debugger: Python File",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}"
+            "program": "${file}",
+            "env": {
+                "TENSORFLOW_SERVING_HOST": "localhost:8501",
+                "SCHEMA": "http"
+            }
         }
     ]
 }
