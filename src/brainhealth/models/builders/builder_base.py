@@ -26,6 +26,11 @@ class ModelBuilderBase(ABC):
                    model_params: params.ModelParams,
                    **kwargs) -> tuple[np.ndarray, np.ndarray]:
         pass
+
+    @abstractmethod
+    def transform_data(self, 
+                       batch: np.ndarray) -> np.ndarray:
+        pass
     
     @abstractmethod
     def define_model(self, 
@@ -184,8 +189,10 @@ class ModelBuilderBase(ABC):
         tuned_model = copy.deepcopy(model)
 
         optimizer = ops.get(tuned_model.optimizer)  
+        label_encodings_file_path = os.path.join(self.data_domain.get_model_repository_local(model_params.model_name), "label_encodings.txt")
+        self.data_domain.save_label_encodings(file_path=label_encodings_file_path)
+        
         save_every_n_batches = training_params.save_every_n_batches
-        # Prepare the data
         steps_per_epoch = training_params.steps_per_epoch # Set according to the streaming data availability
         continuation_token  = None
         cycle_identifier = str(uuid.uuid4())
@@ -209,12 +216,15 @@ class ModelBuilderBase(ABC):
                     model_params=model_params,
                     continuation_token=continuation_token
                 )
+                is_evaluating = step % steps_per_epoch == 0
                 batchX = batches[0]
+                if not is_evaluating:
+                    batchX = self.transform_data(batches[0]) # Add data augmentation for training
                 batchX_labels = labels[0]
                 learning_rate = optimizer._get_current_learning_rate() 
                 descriptions={"step": step, "learning_rate": learning_rate}
                 # Validate the model on the last step of an epoch
-                if step % steps_per_epoch == 0:
+                if is_evaluating:
                     results = tuned_model.evaluate(x=batchX, y=batchX_labels, steps=1, return_dict=True, verbose=0)
                     for metric, value in results.items():
                         descriptions[f"{metric}"] = value
@@ -234,24 +244,7 @@ class ModelBuilderBase(ABC):
                     print(f"Checkpoint saved at batch {step} in epoch {epoch} in {self.data_domain.get_checkpoint_local_path(model_params.model_name)}")
                 
                 self.data_domain.purge_dataset(model_name=model_params.model_name, batch_index=step)
-
+        
         # Save the model
         final_model_path = self.data_domain.save_model(model=tuned_model, model_name=model_params.model_name, type='keras')
         return (tuned_model, final_model_path)
-
-
-    # def evaluate(model: Model) -> dict:
-    #     """
-    #     Evaluate a model on a dataset.
-
-    #     Parameters:
-    #     model (tf.keras.Model): The model to evaluate.
-    #     data (np.ndarray): The input data.
-    #     labels (np.ndarray): The target labels.
-
-    #     Returns:
-    #     dict: The computed metrics.
-    #     """
-
-    #     results = model.evaluate(x=data, y=labels, return_dict=True)
-    #     return results

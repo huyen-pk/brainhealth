@@ -174,3 +174,4 @@ cython_debug/
 /competitors*.code-workspace
 
 test_dataset.py
+oneshot.py

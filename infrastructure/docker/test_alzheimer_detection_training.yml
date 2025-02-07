@@ -8,7 +8,6 @@ services:
     command: 
       - "python"
       - "src/scripts/test_alzheimer_detection_static_data_training.py"
-
     environment:
       TRAIN_DATA_DIR: "/app/data/test/"
       MODELS_REPO_DIR_PATH: "/app/models/"

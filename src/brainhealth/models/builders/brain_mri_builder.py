@@ -7,6 +7,7 @@ from brainhealth.metrics.evaluation_metrics import F1Score
 from infrastructure.units_of_work import ModelTrainingDataDomain
 import numpy as np
 from typing import override
+from brainhealth.utilities.data_augmentation import elastic_transform
 
 class BrainMriModelBuilder(ModelBuilderBase):
 
@@ -130,3 +131,11 @@ class BrainMriModelBuilder(ModelBuilderBase):
                     page_count=1,
                     continuation_token=kwargs.get('continuation_token', None))
         return images, labels
+    
+    @override
+    def transform_data(self, batch):
+        transformed_batch = []
+        for image in batch:
+            transformed_image = elastic_transform(image)
+            transformed_batch.append(transformed_image)
+        return np.array(transformed_batch)

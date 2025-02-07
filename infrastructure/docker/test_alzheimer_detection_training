@@ -21,6 +21,7 @@ COPY setup.py /app/setup.py
 COPY requirements.txt /app/requirements.txt
 COPY data/OASIS/slices_test /app/data/test
 
+
 # Move to the directory where setup.py is located
 WORKDIR /app
 

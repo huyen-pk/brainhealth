@@ -16,6 +16,8 @@ class ModelTrainingDataDomain(ABC):
         self.__model_repository__ = model_repository
         self.__checkpoint_repository__ = checkpoint_repository
         self.__dataset_repository__ = dataset_repository
+        label_classes = self.get_label_classes(os.getenv(VariableNames.MODEL_NAME))
+        self.__label_encodings__ = self.get_label_lookup_table(label_classes)
 
     def get_model(self, model_name: str, file_type: str ="h5") -> Model:
         return self.__model_repository__.get(model_name=model_name, file_type=file_type)
@@ -41,6 +43,29 @@ class ModelTrainingDataDomain(ABC):
     
     def get_label_classes(self, model_name: str) -> list[str]:
         return self.__dataset_repository__.get_labels(model_name)
+    
+    def get_label_lookup_table(self, training_labels: list[str]) -> tf.lookup.StaticHashTable:
+        unique_labels = tf.constant(sorted(set(training_labels)))
+        print(f"Unique labels: {unique_labels}")
+        values = tf.range(len(unique_labels), dtype=tf.float32)
+        print(f"Values: {values}")
+        table = tf.lookup.StaticHashTable(
+                initializer=tf.lookup.KeyValueTensorInitializer(keys=unique_labels, values=values),
+                default_value=-1.0  # Value for unknown labels
+                )
+        return table
+    
+    def get_label_encodings(self):
+        keys = self.__label_encodings__.export()[0].numpy()
+        values = self.__label_encodings__.export()[1].numpy()
+        return dict(zip(keys, values))
+    
+    def save_label_encodings(self, file_path: str) -> str:
+        with open(os.path.join(file_path), 'w') as f:
+            for key, value in self.get_label_encodings().items():
+                f.write(f"{key}: {value}\n")
+        assert os.path.getsize(file_path) > 0, "File is empty"
+        return file_path
     
     def get_dataset(self, model_name: str, page_size: int, page_index: int, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         return self.__dataset_repository__.get(model_name=model_name, 
@@ -77,7 +102,6 @@ class ModelTrainingDataDomain(ABC):
 
 import numpy as np
 from keras import models, preprocessing as pp
-import tempfile
 import datetime as dt
 import shutil
 class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
@@ -89,11 +113,12 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
         self.checkpoint_repository = checkpoint_repository
         self.dataset_repository = dataset_repository
         self.all_files = []
-        self.dataset_repo = os.getenv(VariableNames.TRAIN_DATA_DIR)
+        self.__training_dataset_path__ = os.getenv(VariableNames.TRAIN_DATA_DIR)
+        training_labels = []
         count = 0
-        for dir in os.listdir(self.dataset_repo):
+        for dir in os.listdir(self.__training_dataset_path__):
             dir_files = []
-            directory_path = os.path.join(self.dataset_repo, dir)
+            directory_path = os.path.join(self.__training_dataset_path__, dir)
             cat_count = 0
             for root, __, files in os.walk(directory_path):
                 for file in files:
@@ -105,11 +130,40 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
             dir_files.sort()
             count+= cat_count
             print(f"Found {cat_count} files in {dir}")
+            training_labels.append(dir)
             self.all_files.append(dir_files)
-        print(f"Found {count} files belonging to {len(self.all_files)} categories in {self.dataset_repo}")
+        print(f"Found {count} files belonging to {len(self.all_files)} categories in {self.__training_dataset_path__}")
+        self.label_encodings = self.get_label_lookup_table(training_labels)
+        print("Label encodings:")
+        for key in training_labels:
+            value = self.label_encodings.lookup(tf.constant(key)).numpy()
+            print(f"{key}: {value}")
+
         self.start_index = 0
 
-
+    def get_label_lookup_table(self, training_labels: list[str]) -> tf.lookup.StaticHashTable:
+        unique_labels = tf.constant(sorted(set(training_labels)))
+        print(f"Unique labels: {unique_labels}")
+        values = tf.range(len(unique_labels), dtype=tf.float32)
+        print(f"Values: {values}")
+        table = tf.lookup.StaticHashTable(
+                initializer=tf.lookup.KeyValueTensorInitializer(keys=unique_labels, values=values),
+                default_value=-1.0  # Value for unknown labels
+                )
+        return table
+    
+    def get_label_encodings(self):
+        keys = self.label_encodings.export()[0].numpy()
+        values = self.label_encodings.export()[1].numpy()
+        return dict(zip(keys, values))
+    
+    def save_label_encodings(self, file_path: str) -> str:
+        with open(os.path.join(file_path), 'w') as f:
+            for key, value in self.get_label_encodings().items():
+                f.write(f"{key}: {value}\n")
+        assert os.path.getsize(file_path) > 0, "File is empty"
+        return file_path
+    
     @override
     def get_model(self, model_name: str, file_type: str) -> Model:
         model_repo = self.get_model_repository_local(model_name)
@@ -143,7 +197,7 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
     
     @override
     def get_dataset(self, model_name:str, page_size:int, page_index:int, page_count=1, **kwargs) -> tuple[np.ndarray, np.ndarray]:
-        dataset_repo = self.dataset_repo
+        dataset_repo = self.__training_dataset_path__
         if not os.path.exists(dataset_repo) or not os.listdir(dataset_repo):
             raise FileNotFoundError(f'Dataset repository not found or is empty at {dataset_repo}')
         print(f"Fetching page {self.start_index} dataset from: {dataset_repo}")
@@ -170,18 +224,13 @@ class Local_ModelTrainingDataDomain(ModelTrainingDataDomain):
             labels.append(os.path.basename(os.path.dirname(file_path)))
 
         # Convert labels to float values
-        unique_labels = tf.constant(sorted(set(labels)))
-        values = tf.range(len(unique_labels), dtype=tf.float32)
-        table = tf.lookup.StaticHashTable(
-                initializer=tf.lookup.KeyValueTensorInitializer(keys=unique_labels, values=values),
-                default_value=-1.0  # Value for unknown labels
-                )
         label_set = tf.data.Dataset.from_tensor_slices(labels)
-        mapped_labels = label_set.map(lambda label: table.lookup(label))
+        mapped_labels = label_set.map(lambda label: self.label_encodings.lookup(label))
         encoded_labels = []
         for mapped_label in mapped_labels:
             encoded_labels.append(mapped_label.numpy())
-
+        print(f"encoded labels: {encoded_labels}")
+        raise ValueError("No images or labels found for the given dataset parameters.")
         batches = []
         batches_labels = []
         batches.append(images)
